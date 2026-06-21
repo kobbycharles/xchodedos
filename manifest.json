@@ -1,0 +1,22 @@
+{
+  "name": "xchodedos",
+  "short_name": "xchodedos",
+  "description": "Hire Purchase Car Management",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7ff",
+  "theme_color": "#1a56db",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
