@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>xchodedos — New Officer Account</title>
+  <link rel="stylesheet" href="/css/app.css"/>
+  <style>
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      color: var(--gray-500);
+      font-size: .85rem;
+      font-weight: 500;
+      margin-bottom: 1.25rem;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+    .back-btn:hover { color: var(--brand); }
+
+    .page-title {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      letter-spacing: -.02em;
+      margin-bottom: .25rem;
+    }
+
+    .page-sub {
+      font-size: .82rem;
+      color: var(--gray-400);
+      margin-bottom: 1.5rem;
+    }
+
+    .section-divider {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin: 1.5rem 0 1rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .pw-hint {
+      font-size: .73rem;
+      color: var(--gray-400);
+      margin-top: .35rem;
+    }
+
+    .success-banner {
+      display: none;
+      background: var(--success-bg);
+      border: 1px solid #a7f3d0;
+      border-radius: var(--r-md);
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+      text-align: center;
+    }
+    .success-banner.show { display: block; }
+    .success-banner .s-icon {
+      font-size: 2rem;
+      margin-bottom: .5rem;
+    }
+    .success-banner p {
+      font-size: .85rem;
+      color: #065f46;
+      font-weight: 500;
+    }
+    .success-banner .s-name {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1rem;
+      color: #065f46;
+      margin-bottom: .25rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="top-bar">
+    <span class="top-bar-logo">xchodedos</span>
+    <span class="top-bar-title">New Officer</span>
+    <div class="top-bar-avatar" id="avatarBtn" style="cursor:pointer"></div>
+  </header>
+
+  <main class="page-content">
+
+    <button class="back-btn" onclick="history.back()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Back
+    </button>
+
+    <div class="page-title">New Officer Account</div>
+    <div class="page-sub">Create a login for a Relationship Officer.</div>
+
+    <!-- Success state -->
+    <div class="success-banner" id="successBanner">
+      <div class="s-icon">🎉</div>
+      <div class="s-name" id="successName"></div>
+      <p>Account created successfully.<br/>They can now sign in with their email and password.</p>
+      <div style="margin-top:1rem;display:flex;gap:.75rem;justify-content:center">
+        <button class="btn btn-outline" onclick="resetForm()">Add Another</button>
+        <a href="/pages/admin/officers.html" class="btn btn-primary">View Officers</a>
+      </div>
+    </div>
+
+    <div id="formWrap">
+
+      <div class="card">
+
+        <div class="section-divider">Personal Details</div>
+
+        <div class="form-group">
+          <label class="form-label" for="fullName">Full Name *</label>
+          <input class="form-input" type="text" id="fullName" placeholder="e.g. Kwame Asante" autocomplete="name"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="phone">Phone Number *</label>
+          <input class="form-input" type="tel" id="phone" placeholder="+233 XX XXX XXXX" inputmode="tel"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="idNumber">ID / Staff Number</label>
+          <input class="form-input" type="text" id="idNumber" placeholder="e.g. XC-RO-001"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="address">Address</label>
+          <textarea class="form-textarea" id="address" placeholder="Officer's home or work address" rows="2"></textarea>
+        </div>
+
+        <div class="section-divider">Login Credentials</div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address *</label>
+          <input class="form-input" type="email" id="email" placeholder="officer@example.com" inputmode="email"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Temporary Password *</label>
+          <input class="form-input" type="text" id="password" placeholder="Min. 8 characters"/>
+          <div class="pw-hint">Share this with the officer. They should change it on first login.</div>
+        </div>
+
+      </div>
+
+      <div class="error-msg" id="errMsg" style="margin-top:.875rem;padding:.75rem;background:var(--danger-bg);border:1px solid #fca5a5;border-radius:var(--r-sm);font-size:.82rem;color:#991b1b;display:none"></div>
+
+      <button class="btn btn-primary btn-full mt-2" id="createBtn" onclick="createOfficer()">
+        <span id="btnLabel">Create Account</span>
+        <div class="spinner" id="btnSpinner" style="display:none;width:18px;height:18px;border-width:2px"></div>
+      </button>
+
+    </div>
+
+  </main>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module">
+  import { requireRole, logout } from '/js/auth.js';
+  import db from '/js/supabase.js';
+  import { toast } from '/js/toast.js';
+
+  const profile = await requireRole('super_admin');
+
+  const ini = profile.full_name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+  const av = document.getElementById('avatarBtn');
+  av.textContent = ini;
+  av.addEventListener('click', async () => { if (confirm('Sign out?')) await logout(); });
+
+  window.createOfficer = async function() {
+    const fullName = document.getElementById('fullName').value.trim();
+    const phone    = document.getElementById('phone').value.trim();
+    const idNumber = document.getElementById('idNumber').value.trim();
+    const address  = document.getElementById('address').value.trim();
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    const err = document.getElementById('errMsg');
+    err.style.display = 'none';
+
+    if (!fullName || !phone || !email || !password) {
+      err.textContent = 'Please fill in all required fields (marked with *).';
+      err.style.display = 'block';
+      return;
+    }
+    if (password.length < 8) {
+      err.textContent = 'Password must be at least 8 characters.';
+      err.style.display = 'block';
+      return;
+    }
+
+    const btn = document.getElementById('createBtn');
+    document.getElementById('btnLabel').style.display = 'none';
+    document.getElementById('btnSpinner').style.display = 'block';
+    btn.disabled = true;
+
+    try {
+      // Create auth user via Supabase Admin API (requires service role key on backend)
+      // For now we use signUp — in production replace with Edge Function using service_role key
+      const { data: authData, error: authErr } = await db.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: 'relationship_officer',
+          }
+        }
+      });
+
+      if (authErr) throw authErr;
+
+      // Update the auto-created profile with extra details
+      const userId = authData.user?.id;
+      if (userId) {
+        const { error: profileErr } = await db
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            phone,
+            id_number: idNumber || null,
+            address: address || null,
+            role: 'relationship_officer',
+          })
+          .eq('id', userId);
+
+        if (profileErr) throw profileErr;
+      }
+
+      // Show success
+      document.getElementById('formWrap').style.display = 'none';
+      document.getElementById('successName').textContent = fullName;
+      document.getElementById('successBanner').classList.add('show');
+
+    } catch (e) {
+      err.textContent = e.message || 'Failed to create account. Please try again.';
+      err.style.display = 'block';
+    } finally {
+      document.getElementById('btnLabel').style.display = '';
+      document.getElementById('btnSpinner').style.display = 'none';
+      btn.disabled = false;
+    }
+  };
+
+  window.resetForm = function() {
+    document.getElementById('successBanner').classList.remove('show');
+    document.getElementById('formWrap').style.display = '';
+    ['fullName','phone','idNumber','address','email','password'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+  };
+</script>
+</body>
+</html>

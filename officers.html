@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>xchodedos — Officers</title>
+  <link rel="stylesheet" href="/css/app.css"/>
+  <style>
+    .search-bar {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+    .search-bar svg {
+      position: absolute;
+      left: .875rem;
+      top: 50%; transform: translateY(-50%);
+      color: var(--gray-400);
+      pointer-events: none;
+    }
+    .search-bar input {
+      padding-left: 2.6rem;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: 1rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .filter-tabs::-webkit-scrollbar { display: none; }
+
+    .filter-tab {
+      padding: .4rem .875rem;
+      border-radius: var(--r-full);
+      font-size: .78rem;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--gray-500);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all .15s;
+    }
+    .filter-tab.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+
+    .officer-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 1rem;
+      margin-bottom: .75rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .officer-header {
+      display: flex;
+      align-items: center;
+      gap: .875rem;
+      margin-bottom: .75rem;
+    }
+
+    .officer-meta {
+      display: flex;
+      flex-direction: column;
+      gap: .15rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .officer-name {
+      font-weight: 700;
+      font-size: .95rem;
+      color: var(--gray-900);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .officer-contact {
+      font-size: .75rem;
+      color: var(--gray-400);
+    }
+
+    .officer-stats {
+      display: flex;
+      gap: 1rem;
+      padding-top: .75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .o-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+
+    .o-stat-val {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--gray-800);
+    }
+
+    .o-stat-lbl {
+      font-size: .65rem;
+      font-weight: 500;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      text-align: center;
+    }
+
+    .officer-actions {
+      display: flex;
+      gap: .5rem;
+      margin-top: .875rem;
+    }
+
+    .btn-sm {
+      padding: .45rem .875rem;
+      font-size: .78rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: var(--r-lg) var(--r-lg) 0 0;
+      padding: 1.5rem 1.25rem;
+      width: 100%;
+      max-width: 540px;
+      max-height: 85dvh;
+      overflow-y: auto;
+      animation: slide-up .2s ease;
+    }
+    @keyframes slide-up {
+      from { transform: translateY(30px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-handle {
+      width: 40px; height: 4px;
+      background: var(--gray-200);
+      border-radius: 2px;
+      margin: 0 auto 1.25rem;
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: .625rem 0;
+      border-bottom: 1px solid var(--gray-100);
+      font-size: .85rem;
+      gap: 1rem;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key { color: var(--gray-400); font-weight: 500; flex-shrink: 0; }
+    .detail-val { color: var(--gray-800); font-weight: 600; text-align: right; }
+
+    .skeleton {
+      background: linear-gradient(90deg, var(--gray-100) 25%, var(--gray-200) 50%, var(--gray-100) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 6px;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="top-bar">
+    <span class="top-bar-logo">xchodedos</span>
+    <span class="top-bar-title">Officers</span>
+    <a href="/pages/admin/create-officer.html" class="btn btn-primary btn-sm" style="padding:.4rem .875rem;font-size:.78rem">+ New</a>
+  </header>
+
+  <main class="page-content">
+
+    <!-- Search -->
+    <div class="search-bar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input class="form-input" type="search" id="searchInput" placeholder="Search officers…" oninput="filterOfficers()"/>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="all" onclick="setFilter('all', this)">All</button>
+      <button class="filter-tab" data-filter="active" onclick="setFilter('active', this)">Active</button>
+      <button class="filter-tab" data-filter="inactive" onclick="setFilter('inactive', this)">Inactive</button>
+    </div>
+
+    <!-- List -->
+    <div id="officerList">
+      <!-- skeleton -->
+      <div class="officer-card">
+        <div class="officer-header">
+          <div class="skeleton" style="width:42px;height:42px;border-radius:50%"></div>
+          <div style="flex:1">
+            <div class="skeleton" style="height:14px;width:55%;margin-bottom:.4rem"></div>
+            <div class="skeleton" style="height:11px;width:70%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <a href="/pages/admin/dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+      </svg>
+      Dashboard
+    </a>
+    <a href="/pages/admin/officers.html" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      Officers
+    </a>
+    <a href="/pages/admin/assign-driver.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+        <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+      </svg>
+      Assign
+    </a>
+    <a href="/pages/admin/settings.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      Settings
+    </a>
+  </nav>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modalName"></div>
+    <div id="modalBody"></div>
+    <div style="display:flex;gap:.75rem;margin-top:1.25rem">
+      <button class="btn btn-outline btn-full btn-sm" id="toggleActiveBtn" onclick="toggleActive()"></button>
+      <button class="btn btn-ghost btn-full btn-sm" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module">
+  import { requireRole, logout } from '/js/auth.js';
+  import db from '/js/supabase.js';
+  import { toast } from '/js/toast.js';
+
+  await requireRole('super_admin');
+
+  let allOfficers = [];
+  let currentFilter = 'all';
+  let selectedOfficer = null;
+
+  // Load officers with driver count
+  async function loadOfficers() {
+    const { data, error } = await db
+      .from('profiles')
+      .select(`id, full_name, email, phone, is_active, id_number, address, created_at,
+               officer_driver_assignments(id, is_active)`)
+      .eq('role', 'relationship_officer')
+      .order('full_name');
+
+    if (error) { toast('Failed to load officers', 'error'); return; }
+    allOfficers = data || [];
+    renderOfficers();
+  }
+
+  function renderOfficers() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    const list = document.getElementById('officerList');
+
+    let filtered = allOfficers.filter(o => {
+      const matchSearch = o.full_name.toLowerCase().includes(query) ||
+                          (o.email || '').toLowerCase().includes(query);
+      const matchFilter = currentFilter === 'all' ? true :
+                          currentFilter === 'active' ? o.is_active : !o.is_active;
+      return matchSearch && matchFilter;
+    });
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <p>No officers found.</p>
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(o => {
+      const ini = o.full_name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+      const activeDrivers = (o.officer_driver_assignments || []).filter(a => a.is_active).length;
+      const totalDrivers  = (o.officer_driver_assignments || []).length;
+      return `<div class="officer-card">
+        <div class="officer-header">
+          <div class="list-avatar">${ini}</div>
+          <div class="officer-meta">
+            <div class="officer-name">${o.full_name}</div>
+            <div class="officer-contact">${o.email}</div>
+            ${o.phone ? `<div class="officer-contact">${o.phone}</div>` : ''}
+          </div>
+          <span class="badge ${o.is_active ? 'badge-green' : 'badge-gray'}">${o.is_active ? 'Active' : 'Inactive'}</span>
+        </div>
+        <div class="officer-stats">
+          <div class="o-stat">
+            <div class="o-stat-val">${activeDrivers}</div>
+            <div class="o-stat-lbl">Active Drivers</div>
+          </div>
+          <div class="o-stat">
+            <div class="o-stat-val">${totalDrivers}</div>
+            <div class="o-stat-lbl">Total Assigned</div>
+          </div>
+        </div>
+        <div class="officer-actions">
+          <button class="btn btn-outline btn-sm" onclick='openModal(${JSON.stringify(o)})'>View Details</button>
+          <a href="/pages/admin/assign-driver.html?officer=${o.id}" class="btn btn-ghost btn-sm">Assign Driver</a>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.setFilter = function(f, el) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    renderOfficers();
+  };
+
+  window.filterOfficers = renderOfficers;
+
+  window.openModal = function(o) {
+    selectedOfficer = o;
+    document.getElementById('modalName').textContent = o.full_name;
+    document.getElementById('modalBody').innerHTML = `
+      <div class="detail-row"><span class="detail-key">Email</span><span class="detail-val">${o.email || '—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Phone</span><span class="detail-val">${o.phone || '—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Staff ID</span><span class="detail-val">${o.id_number || '—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Address</span><span class="detail-val">${o.address || '—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Status</span><span class="detail-val"><span class="badge ${o.is_active ? 'badge-green' : 'badge-gray'}">${o.is_active ? 'Active' : 'Inactive'}</span></span></div>
+      <div class="detail-row"><span class="detail-key">Joined</span><span class="detail-val">${new Date(o.created_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}</span></div>
+    `;
+    const toggleBtn = document.getElementById('toggleActiveBtn');
+    toggleBtn.textContent = o.is_active ? 'Deactivate Account' : 'Activate Account';
+    toggleBtn.className = `btn ${o.is_active ? 'btn-danger' : 'btn-primary'} btn-full btn-sm`;
+    document.getElementById('modalOverlay').classList.add('open');
+  };
+
+  window.closeModal = function(e) {
+    if (!e || e.target === document.getElementById('modalOverlay')) {
+      document.getElementById('modalOverlay').classList.remove('open');
+    }
+  };
+
+  window.toggleActive = async function() {
+    if (!selectedOfficer) return;
+    const newStatus = !selectedOfficer.is_active;
+    const { error } = await db.from('profiles').update({ is_active: newStatus }).eq('id', selectedOfficer.id);
+    if (error) { toast('Update failed', 'error'); return; }
+    toast(`Account ${newStatus ? 'activated' : 'deactivated'}`, newStatus ? 'success' : 'default');
+    document.getElementById('modalOverlay').classList.remove('open');
+    await loadOfficers();
+  };
+
+  await loadOfficers();
+</script>
+</body>
+</html>

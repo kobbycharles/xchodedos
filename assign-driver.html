@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>xchodedos — Assign Driver</title>
+  <link rel="stylesheet" href="/css/app.css"/>
+  <style>
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 1.5rem;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .3rem;
+      flex: 1;
+    }
+
+    .step-dot {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: .75rem;
+      font-weight: 700;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      color: var(--gray-400);
+      transition: all .2s;
+    }
+
+    .step.active .step-dot {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+
+    .step.done .step-dot {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    .step-label {
+      font-size: .65rem;
+      font-weight: 600;
+      color: var(--gray-400);
+      text-align: center;
+      letter-spacing: .03em;
+    }
+
+    .step.active .step-label { color: var(--brand); }
+    .step.done .step-label   { color: var(--success); }
+
+    .step-line {
+      flex: 1;
+      height: 2px;
+      background: var(--border);
+      margin-bottom: 1.1rem;
+      transition: background .2s;
+    }
+
+    .step-line.done { background: var(--success); }
+
+    .select-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-md);
+      padding: .875rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: .875rem;
+      cursor: pointer;
+      margin-bottom: .625rem;
+      transition: border-color .15s, box-shadow .15s;
+    }
+
+    .select-card:hover { border-color: var(--brand); }
+
+    .select-card.selected {
+      border-color: var(--brand);
+      background: var(--brand-light);
+      box-shadow: 0 0 0 3px rgba(26,86,219,.1);
+    }
+
+    .select-card .sc-info { flex: 1; min-width: 0; }
+    .select-card .sc-name { font-weight: 600; font-size: .9rem; color: var(--gray-800); }
+    .select-card .sc-sub  { font-size: .75rem; color: var(--gray-400); margin-top: .1rem; }
+
+    .radio-circle {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      transition: all .15s;
+    }
+
+    .select-card.selected .radio-circle {
+      border-color: var(--brand);
+      background: var(--brand);
+    }
+
+    .radio-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #fff;
+      display: none;
+    }
+    .select-card.selected .radio-dot { display: block; }
+
+    .summary-box {
+      background: var(--brand-light);
+      border: 1.5px solid var(--brand);
+      border-radius: var(--r-md);
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: .85rem;
+      padding: .3rem 0;
+    }
+
+    .summary-key { color: var(--gray-500); }
+    .summary-val { font-weight: 600; color: var(--gray-800); }
+
+    .success-screen {
+      display: none;
+      text-align: center;
+      padding: 2rem 0;
+    }
+    .success-screen.show { display: block; }
+
+    .success-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .search-bar { position: relative; margin-bottom: .875rem; }
+    .search-bar svg { position: absolute; left: .875rem; top: 50%; transform: translateY(-50%); color: var(--gray-400); pointer-events: none; }
+    .search-bar input { padding-left: 2.6rem; }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <header class="top-bar">
+    <span class="top-bar-logo">xchodedos</span>
+    <span class="top-bar-title">Assign Driver</span>
+    <div class="top-bar-avatar" id="avatarBtn" style="cursor:pointer"></div>
+  </header>
+
+  <main class="page-content">
+
+    <!-- Step indicator -->
+    <div class="step-indicator">
+      <div class="step active" id="step1Dot">
+        <div class="step-dot">1</div>
+        <div class="step-label">Officer</div>
+      </div>
+      <div class="step-line" id="line1"></div>
+      <div class="step" id="step2Dot">
+        <div class="step-dot">2</div>
+        <div class="step-label">Driver</div>
+      </div>
+      <div class="step-line" id="line2"></div>
+      <div class="step" id="step3Dot">
+        <div class="step-dot">3</div>
+        <div class="step-label">Confirm</div>
+      </div>
+    </div>
+
+    <!-- Step 1: Select Officer -->
+    <div id="step1">
+      <div class="section-head" style="margin-top:0">
+        <span class="section-title">Select Relationship Officer</span>
+      </div>
+      <div class="search-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="form-input" type="search" id="officerSearch" placeholder="Search officers…" oninput="renderOfficers()"/>
+      </div>
+      <div id="officerSelectList"></div>
+      <button class="btn btn-primary btn-full mt-2" onclick="goToStep2()" id="step1Next" disabled>Next: Select Driver →</button>
+    </div>
+
+    <!-- Step 2: Select Driver -->
+    <div id="step2" style="display:none">
+      <div class="section-head" style="margin-top:0">
+        <span class="section-title">Select Driver</span>
+      </div>
+      <div class="search-bar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="form-input" type="search" id="driverSearch" placeholder="Search drivers…" oninput="renderDrivers()"/>
+      </div>
+      <div id="driverSelectList"></div>
+      <div style="display:flex;gap:.75rem;margin-top:1rem">
+        <button class="btn btn-ghost btn-full" onclick="goToStep1()">← Back</button>
+        <button class="btn btn-primary btn-full" onclick="goToStep3()" id="step2Next" disabled>Next: Confirm →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Confirm -->
+    <div id="step3" style="display:none">
+      <div class="section-head" style="margin-top:0">
+        <span class="section-title">Confirm Assignment</span>
+      </div>
+
+      <div class="summary-box">
+        <div class="summary-row">
+          <span class="summary-key">Officer</span>
+          <span class="summary-val" id="confirmOfficer"></span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-key">Driver</span>
+          <span class="summary-val" id="confirmDriver"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <p style="font-size:.85rem;color:var(--gray-500);line-height:1.6">
+          This will assign the selected driver to the officer. The officer will be able to monitor, record payments, and approve checks for this driver.
+        </p>
+      </div>
+
+      <div id="assignErr" style="margin-top:.875rem;padding:.75rem;background:var(--danger-bg);border:1px solid #fca5a5;border-radius:var(--r-sm);font-size:.82rem;color:#991b1b;display:none"></div>
+
+      <div style="display:flex;gap:.75rem;margin-top:1rem">
+        <button class="btn btn-ghost btn-full" onclick="goToStep2()">← Back</button>
+        <button class="btn btn-primary btn-full" id="confirmBtn" onclick="confirmAssign()">Confirm</button>
+      </div>
+    </div>
+
+    <!-- Success -->
+    <div class="success-screen" id="successScreen">
+      <div class="success-icon">✅</div>
+      <div style="font-family:var(--font-display);font-weight:700;font-size:1.2rem;margin-bottom:.5rem">Assignment Complete</div>
+      <p style="font-size:.85rem;color:var(--gray-400);margin-bottom:1.5rem" id="successMsg"></p>
+      <div style="display:flex;flex-direction:column;gap:.75rem">
+        <button class="btn btn-primary btn-full" onclick="startOver()">Make Another Assignment</button>
+        <a href="/pages/admin/dashboard.html" class="btn btn-outline btn-full">Back to Dashboard</a>
+      </div>
+    </div>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <a href="/pages/admin/dashboard.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <a href="/pages/admin/officers.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Officers
+    </a>
+    <a href="/pages/admin/assign-driver.html" class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      Assign
+    </a>
+    <a href="/pages/admin/settings.html" class="nav-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </a>
+  </nav>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module">
+  import { requireRole, logout } from '/js/auth.js';
+  import db from '/js/supabase.js';
+  import { toast } from '/js/toast.js';
+
+  await requireRole('super_admin');
+
+  let officers = [], drivers = [];
+  let selectedOfficer = null, selectedDriver = null;
+
+  // Load data
+  const [oRes, dRes] = await Promise.all([
+    db.from('profiles').select('id, full_name, email, phone').eq('role', 'relationship_officer').eq('is_active', true).order('full_name'),
+    db.from('profiles').select('id, full_name, email, phone').eq('role', 'driver').eq('is_active', true).order('full_name'),
+  ]);
+
+  officers = oRes.data || [];
+  drivers  = dRes.data || [];
+
+  // Pre-select officer from URL param
+  const params = new URLSearchParams(location.search);
+  const preOfficerId = params.get('officer');
+  if (preOfficerId) {
+    selectedOfficer = officers.find(o => o.id === preOfficerId) || null;
+    if (selectedOfficer) { goToStep2(); return; }
+  }
+
+  window.renderOfficers = function() {
+    const q = document.getElementById('officerSearch').value.toLowerCase();
+    const el = document.getElementById('officerSelectList');
+    const filtered = officers.filter(o => o.full_name.toLowerCase().includes(q) || o.email.toLowerCase().includes(q));
+    el.innerHTML = filtered.length ? filtered.map(o => cardHTML(o, selectedOfficer?.id === o.id, 'selectOfficer')).join('') :
+      `<div class="empty-state"><p>No officers found.</p></div>`;
+  };
+
+  window.renderDrivers = function() {
+    const q = document.getElementById('driverSearch').value.toLowerCase();
+    const el = document.getElementById('driverSelectList');
+    const filtered = drivers.filter(d => d.full_name.toLowerCase().includes(q) || d.email.toLowerCase().includes(d));
+    el.innerHTML = filtered.length ? filtered.map(d => cardHTML(d, selectedDriver?.id === d.id, 'selectDriver')).join('') :
+      `<div class="empty-state"><p>No drivers found.</p></div>`;
+  };
+
+  function cardHTML(p, selected, fn) {
+    const ini = p.full_name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="select-card ${selected ? 'selected' : ''}" onclick="${fn}('${p.id}')">
+      <div class="list-avatar" style="width:38px;height:38px;font-size:.8rem">${ini}</div>
+      <div class="sc-info">
+        <div class="sc-name">${p.full_name}</div>
+        <div class="sc-sub">${p.email}</div>
+      </div>
+      <div class="radio-circle"><div class="radio-dot"></div></div>
+    </div>`;
+  }
+
+  window.selectOfficer = function(id) {
+    selectedOfficer = officers.find(o => o.id === id);
+    document.getElementById('step1Next').disabled = false;
+    renderOfficers();
+  };
+
+  window.selectDriver = function(id) {
+    selectedDriver = drivers.find(d => d.id === id);
+    document.getElementById('step2Next').disabled = false;
+    renderDrivers();
+  };
+
+  function updateSteps(active) {
+    ['step1Dot','step2Dot','step3Dot'].forEach((id, i) => {
+      const el = document.getElementById(id);
+      el.classList.remove('active','done');
+      if (i + 1 < active) el.classList.add('done');
+      if (i + 1 === active) el.classList.add('active');
+    });
+    ['line1','line2'].forEach((id, i) => {
+      document.getElementById(id).classList.toggle('done', i + 1 < active);
+    });
+  }
+
+  window.goToStep1 = function() {
+    document.getElementById('step1').style.display = '';
+    document.getElementById('step2').style.display = 'none';
+    updateSteps(1);
+    renderOfficers();
+  };
+
+  window.goToStep2 = function() {
+    if (!selectedOfficer) return;
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = '';
+    updateSteps(2);
+    renderDrivers();
+  };
+
+  window.goToStep3 = function() {
+    if (!selectedDriver) return;
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = '';
+    document.getElementById('confirmOfficer').textContent = selectedOfficer.full_name;
+    document.getElementById('confirmDriver').textContent = selectedDriver.full_name;
+    updateSteps(3);
+  };
+
+  window.confirmAssign = async function() {
+    const btn = document.getElementById('confirmBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    const errEl = document.getElementById('assignErr');
+    errEl.style.display = 'none';
+
+    try {
+      // Check if already assigned
+      const { data: existing } = await db
+        .from('officer_driver_assignments')
+        .select('id')
+        .eq('officer_id', selectedOfficer.id)
+        .eq('driver_id', selectedDriver.id)
+        .eq('is_active', true)
+        .single();
+
+      if (existing) {
+        errEl.textContent = `${selectedDriver.full_name} is already assigned to ${selectedOfficer.full_name}.`;
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Confirm'; return;
+      }
+
+      const { error } = await db.from('officer_driver_assignments').insert({
+        officer_id: selectedOfficer.id,
+        driver_id:  selectedDriver.id,
+      });
+
+      if (error) throw error;
+
+      // Update driver's assigned_officer_id
+      await db.from('profiles').update({ assigned_officer_id: selectedOfficer.id }).eq('id', selectedDriver.id);
+
+      document.getElementById('step3').style.display = 'none';
+      document.getElementById('successMsg').textContent =
+        `${selectedDriver.full_name} has been assigned to ${selectedOfficer.full_name}.`;
+      document.getElementById('successScreen').classList.add('show');
+
+    } catch(e) {
+      errEl.textContent = e.message || 'Assignment failed.';
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Confirm';
+    }
+  };
+
+  window.startOver = function() {
+    selectedOfficer = null; selectedDriver = null;
+    document.getElementById('successScreen').classList.remove('show');
+    goToStep1();
+  };
+
+  renderOfficers();
+</script>
+</body>
+</html>
