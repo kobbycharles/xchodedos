@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>xchodedos — Fleet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand:#1a56db; --brand-dark:#1239a5; --brand-light:#e8eeff;
+      --success:#12b76a; --success-bg:#ecfdf3; --warning:#f59e0b; --warning-bg:#fffbeb;
+      --danger:#ef4444; --danger-bg:#fef2f2;
+      --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db;
+      --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151;
+      --gray-800:#1f2937; --gray-900:#111827;
+      --border:#e5e7eb; --bg:#f5f7ff;
+      --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif;
+      --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:9999px;
+      --shadow-sm:0 1px 3px rgba(0,0,0,.08); --nav-h:64px;
+    }
+    html { -webkit-text-size-adjust:100%; }
+    body { font-family:var(--font-body); background:var(--bg); color:var(--gray-800); min-height:100dvh; }
+    a { text-decoration:none; color:inherit; }
+    button { cursor:pointer; font-family:inherit; }
+
+    .top-bar { position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid var(--border); padding:.875rem 1rem; display:flex; align-items:center; gap:.75rem; }
+    .top-bar-logo { font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--brand); }
+    .top-bar-title { font-weight:600; font-size:1rem; flex:1; }
+    .top-bar-avatar { width:36px; height:36px; border-radius:var(--r-full); background:var(--brand-light); color:var(--brand); display:grid; place-items:center; font-weight:700; font-size:.8rem; cursor:pointer; }
+    .btn-sm { padding:.4rem .875rem; font-size:.78rem; border:none; border-radius:var(--r-sm); font-family:var(--font-body); font-weight:600; cursor:pointer; }
+    .btn-primary-sm { background:var(--brand); color:#fff; }
+
+    .page-content { padding:1.25rem 1rem calc(var(--nav-h) + 1.25rem); max-width:540px; margin:0 auto; }
+
+    .filter-tabs { display:flex; gap:.5rem; margin-bottom:1rem; overflow-x:auto; scrollbar-width:none; }
+    .filter-tabs::-webkit-scrollbar { display:none; }
+    .filter-tab { padding:.4rem .875rem; border-radius:var(--r-full); font-size:.78rem; font-weight:600; border:1.5px solid var(--border); background:#fff; color:var(--gray-500); cursor:pointer; white-space:nowrap; }
+    .filter-tab.active { background:var(--brand); border-color:var(--brand); color:#fff; }
+
+    .car-card { background:#fff; border:1px solid var(--border); border-radius:var(--r-md); padding:1rem; margin-bottom:.75rem; box-shadow:var(--shadow-sm); }
+    .car-header { display:flex; align-items:center; gap:.875rem; margin-bottom:.75rem; }
+    .car-icon { width:44px; height:44px; border-radius:var(--r-sm); background:var(--brand-light); color:var(--brand); display:grid; place-items:center; flex-shrink:0; }
+    .car-name { font-family:var(--font-display); font-weight:700; font-size:.95rem; color:var(--gray-900); }
+    .car-plate { font-size:.75rem; color:var(--gray-400); margin-top:.1rem; }
+    .car-details { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem; margin-bottom:.75rem; }
+    .car-detail { background:var(--gray-50); border-radius:var(--r-sm); padding:.5rem .625rem; }
+    .car-detail-label { font-size:.65rem; font-weight:600; text-transform:uppercase; color:var(--gray-400); margin-bottom:.15rem; }
+    .car-detail-val { font-size:.82rem; font-weight:600; color:var(--gray-800); }
+    .car-driver { background:var(--success-bg); border-radius:var(--r-sm); padding:.5rem .75rem; font-size:.78rem; color:#065f46; font-weight:500; margin-bottom:.75rem; }
+
+    .badge { display:inline-flex; padding:.25rem .6rem; border-radius:var(--r-full); font-size:.7rem; font-weight:600; }
+    .badge-green { background:var(--success-bg); color:#065f46; }
+    .badge-amber { background:var(--warning-bg); color:#92400e; }
+    .badge-blue  { background:var(--brand-light); color:var(--brand-dark); }
+    .badge-gray  { background:var(--gray-100);   color:var(--gray-600); }
+    .badge-red   { background:var(--danger-bg);  color:#991b1b; }
+
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; padding:.5rem .875rem; border:none; border-radius:var(--r-sm); font-family:var(--font-body); font-size:.78rem; font-weight:600; cursor:pointer; }
+    .btn-outline { background:transparent; color:var(--brand); border:1.5px solid var(--brand); }
+    .btn-full { width:100%; }
+    .btn-primary { background:var(--brand); color:#fff; }
+    .btn-ghost   { background:transparent; color:var(--gray-600); border:1.5px solid var(--border); }
+    .btn:disabled { opacity:.5; pointer-events:none; }
+
+    .spinner { width:16px; height:16px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .65s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Add car modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:200; align-items:flex-end; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:#fff; border-radius:var(--r-lg) var(--r-lg) 0 0; padding:1.5rem 1.25rem; width:100%; max-width:540px; max-height:90dvh; overflow-y:auto; animation:slide-up .2s ease; }
+    @keyframes slide-up { from { transform:translateY(30px); opacity:0; } to { transform:none; opacity:1; } }
+    .modal-handle { width:40px; height:4px; background:var(--gray-200); border-radius:2px; margin:0 auto 1.25rem; }
+    .modal-title { font-family:var(--font-display); font-weight:700; font-size:1.1rem; margin-bottom:1.25rem; }
+    .form-group { margin-bottom:.875rem; }
+    .form-label { display:block; font-size:.75rem; font-weight:600; color:var(--gray-600); letter-spacing:.05em; text-transform:uppercase; margin-bottom:.4rem; }
+    .form-input, .form-select { width:100%; background:var(--gray-50); border:1.5px solid var(--border); border-radius:var(--r-sm); color:var(--gray-800); font-family:var(--font-body); font-size:.9rem; padding:.7rem .875rem; outline:none; appearance:none; }
+    .form-input:focus, .form-select:focus { border-color:var(--brand); box-shadow:0 0 0 3px rgba(26,86,219,.12); background:#fff; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+    .error-box { padding:.75rem; background:var(--danger-bg); border:1px solid #fca5a5; border-radius:var(--r-sm); font-size:.82rem; color:#991b1b; margin-bottom:.875rem; display:none; }
+    .error-box.show { display:block; }
+
+    .empty-state { text-align:center; padding:3rem 1rem; color:var(--gray-400); }
+    .skeleton { background:linear-gradient(90deg,var(--gray-100) 25%,var(--gray-200) 50%,var(--gray-100) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px; }
+    @keyframes shimmer { to { background-position:-200% 0; } }
+
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; height:var(--nav-h); background:#fff; border-top:1px solid var(--border); display:flex; z-index:50; box-shadow:0 -4px 16px rgba(0,0,0,.06); }
+    .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; border:none; background:none; color:var(--gray-400); font-size:.65rem; font-weight:500; padding:.5rem 0; text-decoration:none; transition:color .15s; }
+    .nav-item svg { width:22px; height:22px; }
+    .nav-item.active { color:var(--brand); }
+
+    #toast-container { position:fixed; top:1rem; left:50%; transform:translateX(-50%); z-index:999; width:calc(100% - 2rem); max-width:420px; pointer-events:none; }
+    .toast { background:var(--gray-900); color:#fff; padding:.75rem 1rem; border-radius:var(--r-md); font-size:.85rem; font-weight:500; margin-bottom:.5rem; animation:toast-in .2s ease; }
+    .toast.success { background:#065f46; }
+    .toast.error { background:#991b1b; }
+    @keyframes toast-in { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+<header class="top-bar">
+  <span class="top-bar-logo">xchodedos</span>
+  <span class="top-bar-title">Fleet</span>
+  <button class="btn-sm btn-primary-sm" onclick="openAddCar()">+ Add Car</button>
+</header>
+
+<main class="page-content">
+  <div class="filter-tabs">
+    <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
+    <button class="filter-tab" onclick="setFilter('available',this)">Available</button>
+    <button class="filter-tab" onclick="setFilter('assigned',this)">Assigned</button>
+    <button class="filter-tab" onclick="setFilter('maintenance',this)">Maintenance</button>
+  </div>
+  <div id="carList"><div class="skeleton" style="height:160px;border-radius:12px;margin-bottom:.75rem"></div><div class="skeleton" style="height:160px;border-radius:12px"></div></div>
+</main>
+
+<!-- Add Car Modal -->
+<div class="modal-overlay" id="addCarModal" onclick="closeAddCar(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add Car to Fleet</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Make *</label><input class="form-input" id="make" placeholder="e.g. Toyota"/></div>
+      <div class="form-group"><label class="form-label">Model *</label><input class="form-input" id="model" placeholder="e.g. Corolla"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Year *</label><input class="form-input" id="year" type="number" inputmode="numeric" placeholder="2020"/></div>
+      <div class="form-group"><label class="form-label">Color</label><input class="form-input" id="color" placeholder="e.g. White"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Plate Number *</label><input class="form-input" id="plate" placeholder="e.g. GR-1234-20" style="text-transform:uppercase"/></div>
+    <div class="form-group"><label class="form-label">VIN / Chassis No.</label><input class="form-input" id="vin" placeholder="Optional"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Weekly Rate (GHS)</label><input class="form-input" id="weeklyRate" type="number" inputmode="decimal" placeholder="0.00"/></div>
+      <div class="form-group"><label class="form-label">Mileage (km)</label><input class="form-input" id="mileage" type="number" inputmode="numeric" placeholder="0"/></div>
+    </div>
+    <div class="error-box" id="addCarErr"></div>
+    <div style="display:flex;gap:.75rem">
+      <button class="btn btn-ghost btn-full" onclick="closeAddCar()">Cancel</button>
+      <button class="btn btn-primary btn-full" id="addCarBtn" onclick="addCar()">
+        <span id="addCarLabel">Add to Fleet</span>
+        <div class="spinner" id="addCarSpinner" style="display:none"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a href="/pages/officer/dashboard.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+  <a href="/pages/officer/drivers.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Drivers</a>
+  <a href="/pages/officer/create-lead.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>New Lead</a>
+  <a href="/pages/officer/checks.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checks</a>
+  <a href="/pages/officer/fleet.html" class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l3-4h8l3 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>Fleet</a>
+</nav>
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let officerProfile = null, allCars = [], currentFilter = 'all';
+
+  function toast(msg, type='default') { const c=document.getElementById('toast-container'); const el=document.createElement('div'); el.className='toast '+type; el.textContent=msg; c.appendChild(el); setTimeout(()=>el.remove(),3000); }
+
+  const statusBadge = { available:'badge-green', assigned:'badge-blue', maintenance:'badge-amber', retired:'badge-gray' };
+
+  window.setFilter = (f, el) => {
+    currentFilter = f;
+    document.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    render();
+  };
+
+  function render() {
+    const list = document.getElementById('carList');
+    const filtered = currentFilter === 'all' ? allCars : allCars.filter(c => c.status === currentFilter);
+    if (!filtered.length) { list.innerHTML=`<div class="empty-state"><p>No ${currentFilter==='all'?'':currentFilter} cars found.</p></div>`; return; }
+    list.innerHTML = filtered.map(c => {
+      const driver = c.driver_assignments?.[0]?.profiles;
+      return `<div class="car-card">
+        <div class="car-header">
+          <div class="car-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l3-4h8l3 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
+          <div style="flex:1"><div class="car-name">${c.make} ${c.model} ${c.year}</div><div class="car-plate">${c.plate_number}${c.color?' · '+c.color:''}</div></div>
+          <span class="badge ${statusBadge[c.status]||'badge-gray'}">${c.status}</span>
+        </div>
+        <div class="car-details">
+          <div class="car-detail"><div class="car-detail-label">Weekly</div><div class="car-detail-val">${c.weekly_rate ? 'GHS '+c.weekly_rate : '—'}</div></div>
+          <div class="car-detail"><div class="car-detail-label">Mileage</div><div class="car-detail-val">${c.mileage ? c.mileage.toLocaleString()+' km' : '—'}</div></div>
+          <div class="car-detail"><div class="car-detail-label">Year</div><div class="car-detail-val">${c.year}</div></div>
+        </div>
+        ${driver ? `<div class="car-driver">🧑‍✈️ Assigned to ${driver.full_name}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  window.openAddCar = () => document.getElementById('addCarModal').classList.add('open');
+  window.closeAddCar = (e) => { if (!e || e.target===document.getElementById('addCarModal')) { document.getElementById('addCarModal').classList.remove('open'); ['make','model','year','color','plate','vin','weeklyRate','mileage'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; }); } };
+
+  window.addCar = async () => {
+    const errEl = document.getElementById('addCarErr');
+    errEl.style.display='none';
+    const make=document.getElementById('make').value.trim();
+    const model=document.getElementById('model').value.trim();
+    const year=parseInt(document.getElementById('year').value);
+    const plate=document.getElementById('plate').value.trim().toUpperCase();
+    if (!make||!model||!year||!plate) { errEl.textContent='Please fill in Make, Model, Year and Plate Number.'; errEl.style.display='block'; return; }
+
+    const btn=document.getElementById('addCarBtn');
+    document.getElementById('addCarLabel').style.display='none';
+    document.getElementById('addCarSpinner').style.display='block';
+    btn.disabled=true;
+
+    try {
+      const { error } = await db.from('cars').insert({
+        make, model, year, plate_number: plate,
+        color: document.getElementById('color').value.trim()||null,
+        vin: document.getElementById('vin').value.trim()||null,
+        weekly_rate: parseFloat(document.getElementById('weeklyRate').value)||null,
+        mileage: parseInt(document.getElementById('mileage').value)||0,
+        status: 'available',
+        added_by: officerProfile.id,
+      });
+      if (error) throw error;
+      toast('Car added to fleet!', 'success');
+      closeAddCar();
+      await loadCars();
+    } catch(e) {
+      errEl.textContent = e.message || 'Failed to add car.';
+      errEl.style.display='block';
+    } finally {
+      document.getElementById('addCarLabel').style.display='';
+      document.getElementById('addCarSpinner').style.display='none';
+      btn.disabled=false;
+    }
+  };
+
+  async function loadCars() {
+    const { data } = await db.from('cars').select('*, driver_assignments(profiles(full_name))').neq('status','retired').order('created_at', { ascending:false });
+    allCars = data || [];
+    render();
+  }
+
+  async function init() {
+    const { data:{ session } } = await db.auth.getSession();
+    if (!session) { window.location.href='/index.html'; return; }
+    const { data: p } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    if (!p || !['relationship_officer','super_admin'].includes(p.role)) { window.location.href='/index.html'; return; }
+    officerProfile = p;
+    const ini = p.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const av = document.getElementById('top-bar-avatar') || { textContent:'', addEventListener:()=>{} };
+    await loadCars();
+  }
+  init();
+</script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>xchodedos — Create Lead</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand:#1a56db; --brand-dark:#1239a5; --brand-light:#e8eeff;
+      --success:#12b76a; --success-bg:#ecfdf3;
+      --danger:#ef4444; --danger-bg:#fef2f2;
+      --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb;
+      --gray-300:#d1d5db; --gray-400:#9ca3af; --gray-500:#6b7280;
+      --gray-600:#4b5563; --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827;
+      --border:#e5e7eb; --surface:#fff; --bg:#f5f7ff;
+      --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif;
+      --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:9999px;
+      --nav-h:64px;
+    }
+    html { -webkit-text-size-adjust:100%; }
+    body { font-family:var(--font-body); background:var(--bg); color:var(--gray-800); min-height:100dvh; }
+    a { text-decoration:none; color:inherit; }
+    button { cursor:pointer; font-family:inherit; }
+
+    .top-bar { position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid var(--border); padding:.875rem 1rem; display:flex; align-items:center; gap:.75rem; }
+    .top-bar-logo { font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--brand); }
+    .top-bar-title { font-weight:600; font-size:1rem; color:var(--gray-800); flex:1; }
+    .top-bar-avatar { width:36px; height:36px; border-radius:var(--r-full); background:var(--brand-light); color:var(--brand); display:grid; place-items:center; font-weight:700; font-size:.8rem; cursor:pointer; flex-shrink:0; }
+
+    .page-content { padding:1.25rem 1rem calc(var(--nav-h) + 1.25rem); max-width:540px; margin:0 auto; }
+
+    .step-bar { display:flex; align-items:center; margin-bottom:1.75rem; }
+    .step { display:flex; flex-direction:column; align-items:center; gap:.3rem; flex:1; }
+    .step-dot { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:.75rem; font-weight:700; border:2px solid var(--border); background:#fff; color:var(--gray-400); transition:all .2s; }
+    .step.active .step-dot { background:var(--brand); border-color:var(--brand); color:#fff; }
+    .step.done .step-dot { background:var(--success); border-color:var(--success); color:#fff; }
+    .step-label { font-size:.62rem; font-weight:600; color:var(--gray-400); text-align:center; letter-spacing:.03em; }
+    .step.active .step-label { color:var(--brand); }
+    .step.done .step-label { color:var(--success); }
+    .step-line { flex:1; height:2px; background:var(--border); margin-bottom:1.1rem; transition:background .2s; }
+    .step-line.done { background:var(--success); }
+
+    .card { background:#fff; border:1px solid var(--border); border-radius:var(--r-lg); padding:1.25rem; }
+    .section-div { font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--gray-400); margin:1.25rem 0 .875rem; display:flex; align-items:center; gap:.75rem; }
+    .section-div::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    .form-group { margin-bottom:1rem; }
+    .form-label { display:block; font-size:.75rem; font-weight:600; color:var(--gray-600); letter-spacing:.05em; text-transform:uppercase; margin-bottom:.4rem; }
+    .form-input, .form-select, .form-textarea { width:100%; background:var(--gray-50); border:1.5px solid var(--border); border-radius:var(--r-sm); color:var(--gray-800); font-family:var(--font-body); font-size:.9rem; padding:.7rem .875rem; outline:none; transition:border-color .15s,box-shadow .15s; appearance:none; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color:var(--brand); box-shadow:0 0 0 3px rgba(26,86,219,.12); background:#fff; }
+    .form-input::placeholder { color:var(--gray-300); }
+    .form-textarea { resize:vertical; min-height:80px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.75rem 1.25rem; border:none; border-radius:var(--r-sm); font-family:var(--font-body); font-size:.9rem; font-weight:600; cursor:pointer; transition:opacity .15s,transform .1s; }
+    .btn:active { transform:scale(.97); }
+    .btn:disabled { opacity:.5; pointer-events:none; }
+    .btn-primary { background:var(--brand); color:#fff; }
+    .btn-primary:hover { background:var(--brand-dark); }
+    .btn-ghost { background:transparent; color:var(--gray-600); }
+    .btn-ghost:hover { background:var(--gray-100); }
+    .btn-full { width:100%; }
+
+    .spinner { width:18px; height:18px; border:2.5px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .65s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .error-box { margin-top:.875rem; padding:.75rem; background:var(--danger-bg); border:1px solid #fca5a5; border-radius:var(--r-sm); font-size:.82rem; color:#991b1b; display:none; }
+    .error-box.show { display:block; }
+
+    .success-screen { display:none; text-align:center; padding:2rem 0; }
+    .success-screen.show { display:block; }
+
+    .guarantor-block { background:var(--gray-50); border:1px solid var(--border); border-radius:var(--r-md); padding:1rem; margin-bottom:.875rem; }
+    .guarantor-title { font-family:var(--font-display); font-weight:700; font-size:.88rem; color:var(--gray-700); margin-bottom:.875rem; }
+
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; height:var(--nav-h); background:#fff; border-top:1px solid var(--border); display:flex; z-index:50; box-shadow:0 -4px 16px rgba(0,0,0,.06); }
+    .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; border:none; background:none; color:var(--gray-400); font-size:.65rem; font-weight:500; padding:.5rem 0; text-decoration:none; transition:color .15s; }
+    .nav-item svg { width:22px; height:22px; }
+    .nav-item.active { color:var(--brand); }
+
+    #toast-container { position:fixed; top:1rem; left:50%; transform:translateX(-50%); z-index:999; width:calc(100% - 2rem); max-width:420px; pointer-events:none; }
+    .toast { background:var(--gray-900); color:#fff; padding:.75rem 1rem; border-radius:var(--r-md); font-size:.85rem; font-weight:500; margin-bottom:.5rem; animation:toast-in .2s ease; }
+    .toast.success { background:#065f46; }
+    .toast.error   { background:#991b1b; }
+    @keyframes toast-in { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+  </style>
+</head>
+<body>
+<header class="top-bar">
+  <span class="top-bar-logo">xchodedos</span>
+  <span class="top-bar-title">Create Lead</span>
+  <div class="top-bar-avatar" id="avatarBtn"></div>
+</header>
+
+<main class="page-content">
+  <!-- Step indicator -->
+  <div class="step-bar">
+    <div class="step active" id="s1"><div class="step-dot">1</div><div class="step-label">Personal</div></div>
+    <div class="step-line" id="l1"></div>
+    <div class="step" id="s2"><div class="step-dot">2</div><div class="step-label">Guarantors</div></div>
+    <div class="step-line" id="l2"></div>
+    <div class="step" id="s3"><div class="step-dot">3</div><div class="step-label">Deposit</div></div>
+  </div>
+
+  <!-- Step 1: Personal Details -->
+  <div id="step1">
+    <div class="card">
+      <div class="section-div">Personal Details</div>
+      <div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="fullName" type="text" placeholder="e.g. Kofi Mensah"/></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Phone *</label><input class="form-input" id="phone" type="tel" placeholder="+233 XX XXX XXXX" inputmode="tel"/></div>
+        <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="dob" type="date"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="email" type="email" placeholder="optional" inputmode="email"/></div>
+      <div class="form-group"><label class="form-label">ID Number *</label><input class="form-input" id="idNumber" type="text" placeholder="National ID / Passport No."/></div>
+      <div class="form-group"><label class="form-label">Address *</label><textarea class="form-textarea" id="address" placeholder="Residential address" rows="2"></textarea></div>
+      <div class="section-div">Emergency Contact</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Contact Name</label><input class="form-input" id="emergencyName" type="text" placeholder="Name"/></div>
+        <div class="form-group"><label class="form-label">Contact Phone</label><input class="form-input" id="emergencyPhone" type="tel" placeholder="Phone" inputmode="tel"/></div>
+      </div>
+    </div>
+    <div class="error-box" id="err1"></div>
+    <button class="btn btn-primary btn-full" style="margin-top:1rem" onclick="goStep2()">Next: Guarantors →</button>
+  </div>
+
+  <!-- Step 2: Guarantors -->
+  <div id="step2" style="display:none">
+    <div class="guarantor-block">
+      <div class="guarantor-title">👤 Guarantor 1</div>
+      <div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="g1Name" type="text" placeholder="Guarantor full name"/></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Phone *</label><input class="form-input" id="g1Phone" type="tel" inputmode="tel" placeholder="Phone number"/></div>
+        <div class="form-group"><label class="form-label">ID Number *</label><input class="form-input" id="g1Id" type="text" placeholder="National ID"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">Relationship</label><input class="form-input" id="g1Rel" type="text" placeholder="e.g. Brother, Friend"/></div>
+      <div class="form-group"><label class="form-label">Address</label><input class="form-input" id="g1Address" type="text" placeholder="Residential address"/></div>
+    </div>
+
+    <div class="guarantor-block">
+      <div class="guarantor-title">👤 Guarantor 2</div>
+      <div class="form-group"><label class="form-label">Full Name *</label><input class="form-input" id="g2Name" type="text" placeholder="Guarantor full name"/></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Phone *</label><input class="form-input" id="g2Phone" type="tel" inputmode="tel" placeholder="Phone number"/></div>
+        <div class="form-group"><label class="form-label">ID Number *</label><input class="form-input" id="g2Id" type="text" placeholder="National ID"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">Relationship</label><input class="form-input" id="g2Rel" type="text" placeholder="e.g. Sister, Colleague"/></div>
+      <div class="form-group"><label class="form-label">Address</label><input class="form-input" id="g2Address" type="text" placeholder="Residential address"/></div>
+    </div>
+
+    <div class="error-box" id="err2"></div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <button class="btn btn-ghost btn-full" onclick="goStep1()">← Back</button>
+      <button class="btn btn-primary btn-full" onclick="goStep3()">Next: Deposit →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Security Deposit -->
+  <div id="step3" style="display:none">
+    <div class="card">
+      <div class="section-div">Security Deposit</div>
+      <div class="form-group"><label class="form-label">Deposit Amount (GHS) *</label><input class="form-input" id="depositAmt" type="number" inputmode="decimal" placeholder="0.00" min="0" step="0.01"/></div>
+      <div class="form-group">
+        <label class="form-label">Has Deposit Been Paid?</label>
+        <select class="form-select" id="depositPaid">
+          <option value="false">No — pending payment</option>
+          <option value="true">Yes — paid</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="notes" placeholder="Any additional notes about this lead…" rows="3"></textarea></div>
+    </div>
+    <div class="error-box" id="err3"></div>
+    <div style="display:flex;gap:.75rem;margin-top:1rem">
+      <button class="btn btn-ghost btn-full" onclick="goStep2()">← Back</button>
+      <button class="btn btn-primary btn-full" id="submitBtn" onclick="submitLead()">
+        <span id="submitLabel">Register Lead</span>
+        <div class="spinner" id="submitSpinner" style="display:none"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Success -->
+  <div class="success-screen" id="successScreen">
+    <div style="font-size:3rem;margin-bottom:1rem">🎉</div>
+    <div style="font-family:var(--font-display);font-weight:700;font-size:1.3rem;margin-bottom:.5rem" id="successName"></div>
+    <p style="font-size:.85rem;color:var(--gray-400);margin-bottom:1.5rem">Lead registered successfully with 2 guarantors.</p>
+    <div style="display:flex;flex-direction:column;gap:.75rem">
+      <button class="btn btn-primary btn-full" onclick="resetForm()">Register Another Lead</button>
+      <a href="/pages/officer/dashboard.html" class="btn btn-ghost btn-full">Back to Dashboard</a>
+    </div>
+  </div>
+</main>
+
+<nav class="bottom-nav">
+  <a href="/pages/officer/dashboard.html" class="nav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
+  </a>
+  <a href="/pages/officer/drivers.html" class="nav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Drivers
+  </a>
+  <a href="/pages/officer/create-lead.html" class="nav-item active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>New Lead
+  </a>
+  <a href="/pages/officer/checks.html" class="nav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Checks
+  </a>
+  <a href="/pages/officer/fleet.html" class="nav-item">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l3-4h8l3 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>Fleet
+  </a>
+</nav>
+<div id="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let officerProfile = null;
+
+  function toast(msg, type='default') {
+    const c = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    c.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+
+  function updateSteps(active) {
+    ['s1','s2','s3'].forEach((id,i) => {
+      const el = document.getElementById(id);
+      el.classList.remove('active','done');
+      if (i+1 < active) el.classList.add('done');
+      if (i+1 === active) el.classList.add('active');
+    });
+    ['l1','l2'].forEach((id,i) => {
+      document.getElementById(id).classList.toggle('done', i+1 < active);
+    });
+  }
+
+  function showErr(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.classList.add('show');
+  }
+  function clearErr(id) { document.getElementById(id).classList.remove('show'); }
+
+  window.goStep1 = () => { document.getElementById('step2').style.display='none'; document.getElementById('step1').style.display=''; updateSteps(1); };
+  window.goStep2 = () => {
+    clearErr('err1');
+    const name = document.getElementById('fullName').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const id = document.getElementById('idNumber').value.trim();
+    const addr = document.getElementById('address').value.trim();
+    if (!name||!phone||!id||!addr) { showErr('err1','Please fill in all required fields.'); return; }
+    document.getElementById('step1').style.display='none';
+    document.getElementById('step2').style.display='';
+    updateSteps(2);
+  };
+  window.goStep3 = () => {
+    clearErr('err2');
+    const fields = ['g1Name','g1Phone','g1Id','g2Name','g2Phone','g2Id'];
+    if (fields.some(f => !document.getElementById(f).value.trim())) { showErr('err2','Please fill in all required guarantor fields.'); return; }
+    document.getElementById('step2').style.display='none';
+    document.getElementById('step3').style.display='';
+    updateSteps(3);
+  };
+
+  window.submitLead = async () => {
+    clearErr('err3');
+    const depositAmt = parseFloat(document.getElementById('depositAmt').value) || 0;
+    const depositPaid = document.getElementById('depositPaid').value === 'true';
+
+    const btn = document.getElementById('submitBtn');
+    document.getElementById('submitLabel').style.display='none';
+    document.getElementById('submitSpinner').style.display='block';
+    btn.disabled = true;
+
+    try {
+      // 1. Create profile for the lead
+      const email = document.getElementById('email').value.trim() || `lead_${Date.now()}@xchodedos.internal`;
+      const { data: authData, error: authErr } = await db.auth.signUp({
+        email, password: Math.random().toString(36).slice(-10) + 'Aa1!',
+        options: { data: { full_name: document.getElementById('fullName').value.trim(), role: 'lead' } }
+      });
+      if (authErr) throw authErr;
+
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('User creation failed.');
+
+      // 2. Update profile details
+      await db.from('profiles').update({
+        full_name: document.getElementById('fullName').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        id_number: document.getElementById('idNumber').value.trim(),
+        address: document.getElementById('address').value.trim(),
+        date_of_birth: document.getElementById('dob').value || null,
+        emergency_contact: document.getElementById('emergencyName').value.trim() || null,
+        emergency_phone: document.getElementById('emergencyPhone').value.trim() || null,
+        role: 'lead',
+      }).eq('id', userId);
+
+      // 3. Create lead record
+      const { data: lead, error: leadErr } = await db.from('leads').insert({
+        profile_id: userId,
+        status: 'registered',
+        security_deposit: depositAmt,
+        deposit_paid: depositPaid,
+        deposit_paid_at: depositPaid ? new Date().toISOString() : null,
+        notes: document.getElementById('notes').value.trim() || null,
+        created_by: officerProfile.id,
+      }).select().single();
+      if (leadErr) throw leadErr;
+
+      // 4. Create 2 guarantors
+      await db.from('guarantors').insert([
+        { lead_id: lead.id, full_name: document.getElementById('g1Name').value.trim(), phone: document.getElementById('g1Phone').value.trim(), id_number: document.getElementById('g1Id').value.trim(), relationship: document.getElementById('g1Rel').value.trim()||null, address: document.getElementById('g1Address').value.trim()||null },
+        { lead_id: lead.id, full_name: document.getElementById('g2Name').value.trim(), phone: document.getElementById('g2Phone').value.trim(), id_number: document.getElementById('g2Id').value.trim(), relationship: document.getElementById('g2Rel').value.trim()||null, address: document.getElementById('g2Address').value.trim()||null },
+      ]);
+
+      document.getElementById('step3').style.display='none';
+      document.getElementById('successName').textContent = document.getElementById('fullName').value.trim();
+      document.getElementById('successScreen').classList.add('show');
+
+    } catch(e) {
+      showErr('err3', e.message || 'Failed to register lead.');
+    } finally {
+      document.getElementById('submitLabel').style.display='';
+      document.getElementById('submitSpinner').style.display='none';
+      btn.disabled = false;
+    }
+  };
+
+  window.resetForm = () => {
+    document.getElementById('successScreen').classList.remove('show');
+    ['fullName','phone','email','idNumber','address','dob','emergencyName','emergencyPhone',
+     'g1Name','g1Phone','g1Id','g1Rel','g1Address','g2Name','g2Phone','g2Id','g2Rel','g2Address',
+     'depositAmt','notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('step1').style.display='';
+    document.getElementById('step3').style.display='none';
+    updateSteps(1);
+  };
+
+  async function init() {
+    const { data:{ session } } = await db.auth.getSession();
+    if (!session) { window.location.href='/index.html'; return; }
+    const { data: p } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    if (!p || !['relationship_officer','super_admin'].includes(p.role)) { window.location.href='/index.html'; return; }
+    officerProfile = p;
+    const ini = p.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const av = document.getElementById('avatarBtn');
+    av.textContent = ini;
+    av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } });
+  }
+  init();
+</script>
+</body>
+</html>
