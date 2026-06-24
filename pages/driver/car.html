@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>xchodedos — My Car</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --brand:#1a56db; --brand-dark:#1239a5; --brand-light:#e8eeff;
+      --success:#12b76a; --success-bg:#ecfdf3; --warning:#f59e0b; --warning-bg:#fffbeb;
+      --danger:#ef4444; --danger-bg:#fef2f2;
+      --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb;
+      --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563;
+      --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827;
+      --border:#e5e7eb; --bg:#f5f7ff;
+      --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif;
+      --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:9999px;
+      --shadow-sm:0 1px 3px rgba(0,0,0,.08); --nav-h:64px;
+    }
+    html { -webkit-text-size-adjust:100%; }
+    body { font-family:var(--font-body); background:var(--bg); color:var(--gray-800); min-height:100dvh; }
+    a { text-decoration:none; color:inherit; }
+    button { cursor:pointer; font-family:inherit; }
+
+    .top-bar { position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid var(--border); padding:.875rem 1rem; display:flex; align-items:center; gap:.75rem; }
+    .top-bar-logo { font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--brand); }
+    .top-bar-title { font-weight:600; font-size:1rem; flex:1; }
+    .top-bar-avatar { width:36px; height:36px; border-radius:var(--r-full); background:var(--brand-light); color:var(--brand); display:grid; place-items:center; font-weight:700; font-size:.8rem; cursor:pointer; }
+
+    .page-content { padding:1.25rem 1rem calc(var(--nav-h) + 1.25rem); max-width:540px; margin:0 auto; }
+
+    .car-hero { background:linear-gradient(135deg,#1a56db 0%,#1239a5 100%); border-radius:var(--r-lg); padding:1.75rem 1.5rem; color:#fff; margin-bottom:1rem; position:relative; overflow:hidden; }
+    .car-hero::after { content:''; position:absolute; right:-20px; top:-20px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,.07); }
+    .car-hero-icon { width:56px; height:56px; background:rgba(255,255,255,.15); border-radius:var(--r-md); display:grid; place-items:center; margin-bottom:1rem; border:1px solid rgba(255,255,255,.2); }
+    .car-hero-name { font-family:var(--font-display); font-size:1.4rem; font-weight:700; margin-bottom:.25rem; }
+    .car-hero-plate { font-size:.9rem; opacity:.8; margin-bottom:1.25rem; }
+    .car-hero-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem; }
+    .car-hero-stat { background:rgba(255,255,255,.12); border-radius:var(--r-sm); padding:.625rem .5rem; text-align:center; }
+    .car-hero-stat-val { font-family:var(--font-display); font-weight:700; font-size:1rem; }
+    .car-hero-stat-lbl { font-size:.62rem; opacity:.7; text-transform:uppercase; letter-spacing:.05em; margin-top:.15rem; }
+
+    .detail-card { background:#fff; border:1px solid var(--border); border-radius:var(--r-lg); padding:1rem 1.25rem; margin-bottom:1rem; box-shadow:var(--shadow-sm); }
+    .detail-card-title { font-family:var(--font-display); font-size:.82rem; font-weight:700; color:var(--gray-500); text-transform:uppercase; letter-spacing:.07em; margin-bottom:.875rem; }
+    .detail-row { display:flex; justify-content:space-between; align-items:center; padding:.6rem 0; border-bottom:1px solid var(--gray-100); font-size:.88rem; gap:1rem; }
+    .detail-row:last-child { border-bottom:none; }
+    .detail-key { color:var(--gray-400); font-weight:500; flex-shrink:0; }
+    .detail-val { color:var(--gray-800); font-weight:600; text-align:right; }
+
+    .check-history-row { display:flex; align-items:center; gap:.875rem; padding:.75rem 0; border-bottom:1px solid var(--gray-100); font-size:.85rem; }
+    .check-history-row:last-child { border-bottom:none; }
+    .check-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .check-dot.approved { background:var(--success); }
+    .check-dot.pending  { background:var(--warning); }
+    .check-dot.declined { background:var(--danger); }
+    .check-info { flex:1; }
+    .check-date { font-weight:600; color:var(--gray-800); }
+    .check-sub  { font-size:.73rem; color:var(--gray-400); margin-top:.1rem; }
+
+    .badge { display:inline-flex; padding:.2rem .55rem; border-radius:var(--r-full); font-size:.68rem; font-weight:600; }
+    .badge-green { background:var(--success-bg); color:#065f46; }
+    .badge-amber { background:var(--warning-bg); color:#92400e; }
+    .badge-red   { background:var(--danger-bg);  color:#991b1b; }
+
+    .no-car { background:var(--warning-bg); border:1px solid #fde68a; border-radius:var(--r-lg); padding:2rem 1.25rem; text-align:center; }
+
+    .empty-state { text-align:center; padding:1.5rem; color:var(--gray-400); font-size:.85rem; }
+    .skeleton { background:linear-gradient(90deg,var(--gray-100) 25%,var(--gray-200) 50%,var(--gray-100) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px; }
+    @keyframes shimmer { to { background-position:-200% 0; } }
+
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; height:var(--nav-h); background:#fff; border-top:1px solid var(--border); display:flex; z-index:50; box-shadow:0 -4px 16px rgba(0,0,0,.06); }
+    .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; border:none; background:none; color:var(--gray-400); font-size:.65rem; font-weight:500; padding:.5rem 0; text-decoration:none; transition:color .15s; }
+    .nav-item svg { width:22px; height:22px; }
+    .nav-item.active { color:var(--brand); }
+  </style>
+</head>
+<body>
+<header class="top-bar">
+  <span class="top-bar-logo">xchodedos</span>
+  <span class="top-bar-title">My Car</span>
+  <div class="top-bar-avatar" id="avatarBtn"></div>
+</header>
+
+<main class="page-content">
+  <div id="carContent"><div class="skeleton" style="height:220px;border-radius:16px;margin-bottom:1rem"></div><div class="skeleton" style="height:180px;border-radius:16px"></div></div>
+</main>
+
+<nav class="bottom-nav">
+  <a href="/pages/driver/dashboard.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</a>
+  <a href="/pages/driver/payments.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Payments</a>
+  <a href="/pages/driver/pre-use-check.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Check</a>
+  <a href="/pages/driver/car.html" class="nav-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l3-4h8l3 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>Car</a>
+  <a href="/pages/driver/profile.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile</a>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  async function init() {
+    const { data:{ session } } = await db.auth.getSession();
+    if (!session) { window.location.href='/index.html'; return; }
+    const { data: profile } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    if (!profile || profile.role !== 'driver') { window.location.href='/index.html'; return; }
+
+    const ini = profile.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const av = document.getElementById('avatarBtn');
+    av.textContent = ini;
+    av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } });
+
+    const [assignmentRes, checksRes] = await Promise.all([
+      db.from('driver_assignments').select('*, cars(*)').eq('driver_id', profile.id).eq('is_active', true).single(),
+      db.from('pre_use_checks').select('check_date, status, fuel_level, odometer_start, driver_notes').eq('driver_id', profile.id).order('check_date', { ascending:false }).limit(7),
+    ]);
+
+    const assignment = assignmentRes.data;
+    const checks     = checksRes.data || [];
+    const el         = document.getElementById('carContent');
+
+    if (!assignment?.cars) {
+      el.innerHTML = `<div class="no-car">
+        <div style="font-size:3rem;margin-bottom:1rem">🚗</div>
+        <div style="font-family:var(--font-display);font-weight:700;font-size:1.1rem;color:#92400e;margin-bottom:.5rem">No Car Assigned</div>
+        <p style="font-size:.85rem;color:#92400e">You don't have a vehicle assigned yet. Contact your relationship officer.</p>
+      </div>`;
+      return;
+    }
+
+    const c = assignment.cars;
+    const hireStart = new Date(assignment.hire_start_date);
+    const weeksActive = Math.floor((new Date() - hireStart) / (7*24*60*60*1000));
+
+    el.innerHTML = `
+      <!-- Car hero -->
+      <div class="car-hero">
+        <div class="car-hero-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l3-4h8l3 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>
+        </div>
+        <div class="car-hero-name">${c.make} ${c.model}</div>
+        <div class="car-hero-plate">${c.plate_number} · ${c.year}${c.color?' · '+c.color:''}</div>
+        <div class="car-hero-stats">
+          <div class="car-hero-stat"><div class="car-hero-stat-val">GHS ${assignment.weekly_payment}</div><div class="car-hero-stat-lbl">Weekly Rate</div></div>
+          <div class="car-hero-stat"><div class="car-hero-stat-val">${weeksActive}</div><div class="car-hero-stat-lbl">Weeks Active</div></div>
+          <div class="car-hero-stat"><div class="car-hero-stat-val">${c.mileage ? c.mileage.toLocaleString() : '—'}</div><div class="car-hero-stat-lbl">Mileage km</div></div>
+        </div>
+      </div>
+
+      <!-- Vehicle details -->
+      <div class="detail-card">
+        <div class="detail-card-title">Vehicle Details</div>
+        <div class="detail-row"><span class="detail-key">Make & Model</span><span class="detail-val">${c.make} ${c.model}</span></div>
+        <div class="detail-row"><span class="detail-key">Year</span><span class="detail-val">${c.year}</span></div>
+        <div class="detail-row"><span class="detail-key">Colour</span><span class="detail-val">${c.color||'—'}</span></div>
+        <div class="detail-row"><span class="detail-key">Plate Number</span><span class="detail-val">${c.plate_number}</span></div>
+        <div class="detail-row"><span class="detail-key">VIN / Chassis</span><span class="detail-val" style="font-size:.8rem">${c.vin||'—'}</span></div>
+        <div class="detail-row"><span class="detail-key">Mileage</span><span class="detail-val">${c.mileage ? c.mileage.toLocaleString()+' km' : '—'}</span></div>
+      </div>
+
+      <!-- Hire details -->
+      <div class="detail-card">
+        <div class="detail-card-title">Hire Agreement</div>
+        <div class="detail-row"><span class="detail-key">Hire Started</span><span class="detail-val">${hireStart.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span></div>
+        <div class="detail-row"><span class="detail-key">Weekly Payment</span><span class="detail-val">GHS ${assignment.weekly_payment}</span></div>
+        <div class="detail-row"><span class="detail-key">Weeks Active</span><span class="detail-val">${weeksActive} weeks</span></div>
+        ${assignment.hire_end_date ? `<div class="detail-row"><span class="detail-key">End Date</span><span class="detail-val">${new Date(assignment.hire_end_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span></div>` : ''}
+        ${assignment.notes ? `<div class="detail-row"><span class="detail-key">Notes</span><span class="detail-val" style="font-size:.82rem">${assignment.notes}</span></div>` : ''}
+      </div>
+
+      <!-- Recent checks -->
+      <div class="detail-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">
+          <div class="detail-card-title" style="margin-bottom:0">Recent Pre-Use Checks</div>
+          <a href="/pages/driver/pre-use-check.html" style="font-size:.78rem;color:var(--brand);font-weight:600">+ New Check</a>
+        </div>
+        ${!checks.length
+          ? '<div class="empty-state">No checks submitted yet.</div>'
+          : checks.map(ch => `
+          <div class="check-history-row">
+            <div class="check-dot ${ch.status}"></div>
+            <div class="check-info">
+              <div class="check-date">${new Date(ch.check_date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>
+              <div class="check-sub">Fuel: ${ch.fuel_level||'—'}${ch.odometer_start?' · '+ch.odometer_start.toLocaleString()+' km':''}</div>
+            </div>
+            <span class="badge ${ch.status==='approved'?'badge-green':ch.status==='declined'?'badge-red':'badge-amber'}">${ch.status}</span>
+          </div>`).join('')
+        }
+      </div>`;
+  }
+  init();
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 // js/auth.js — Authentication & Role-Based Routing
 
-import db from './supabase.js';
+const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
 
 const ROLE_ROUTES = {
   driver:                'pages/driver/dashboard.html',
@@ -9,63 +10,16 @@ const ROLE_ROUTES = {
   lead:                  'pages/lead/status.html',
 };
 
-// ─── Login ────────────────────────────────────────────────────
-export async function login(email, password) {
-  const { data, error } = await db.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  await redirectByRole();
-  return data;
-}
-
-// ─── Logout ───────────────────────────────────────────────────
-export async function logout() {
-  await db.auth.signOut();
-  window.location.href = '/index.html';
-}
-
-// ─── Get current session ──────────────────────────────────────
-export async function getSession() {
+// Used by index.html inline script — also exported for other pages
+async function getSession() {
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: { session } } = await db.auth.getSession();
-  return session;
+  return { db, session };
 }
 
-// ─── Get current user profile ─────────────────────────────────
-export async function getCurrentProfile() {
-  const session = await getSession();
-  if (!session) return null;
-
-  const { data, error } = await db
-    .from('profiles')
-    .select('*')
-    .eq('id', session.user.id)
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-// ─── Redirect based on role ───────────────────────────────────
-export async function redirectByRole() {
-  const profile = await getCurrentProfile();
-  if (!profile) { window.location.href = '/index.html'; return; }
-  const route = ROLE_ROUTES[profile.role] || '/index.html';
-  window.location.href = '/' + route;
-}
-
-// ─── Guard: protect a page, redirect if not authed / wrong role ─
-export async function requireRole(...allowedRoles) {
-  const session = await getSession();
-  if (!session) { window.location.href = '/index.html'; return null; }
-
-  const profile = await getCurrentProfile();
-  if (!profile || !allowedRoles.includes(profile.role)) {
-    window.location.href = '/index.html';
-    return null;
-  }
-  return profile;
-}
-
-// ─── Listen for auth changes ──────────────────────────────────
-export function onAuthChange(callback) {
-  db.auth.onAuthStateChange((_event, session) => callback(session));
+async function redirectByRole() {
+  const { db, session } = await getSession();
+  if (!session) { window.location.href = '/index.html'; return; }
+  const { data } = await db.from('profiles').select('role').eq('id', session.user.id).single();
+  if (data?.role) window.location.href = '/' + (ROLE_ROUTES[data.role] || 'index.html');
 }

@@ -194,7 +194,10 @@
           <span class="badge badge-green">Assigned</span>
         </div>`;
     } else {
-      carSection.innerHTML = `<div style="background:var(--warning-bg);border-radius:12px;padding:.875rem 1rem;margin-bottom:1rem;font-size:.85rem;color:#92400e">⚠️ No vehicle currently assigned to this driver.</div>`;
+      carSection.innerHTML = `<div style="background:var(--warning-bg);border-radius:12px;padding:.875rem 1rem;margin-bottom:1rem;font-size:.85rem;color:#92400e;border:1px solid #fde68a;display:flex;align-items:center;justify-content:space-between;gap:.75rem">
+        <span>⚠️ No vehicle assigned yet.</span>
+        <a href="/pages/officer/assign-vehicle.html?driver=${driverId}" style="background:var(--brand);color:#fff;padding:.4rem .75rem;border-radius:8px;font-size:.75rem;font-weight:600;white-space:nowrap;text-decoration:none">Assign Car →</a>
+      </div>`;
     }
 
     // Personal details

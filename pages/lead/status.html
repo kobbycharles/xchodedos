@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>xchodedos — Your Application</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --brand:#1a56db; --brand-dark:#1239a5; --brand-light:#e8eeff;
+      --success:#12b76a; --success-bg:#ecfdf3; --warning:#f59e0b; --warning-bg:#fffbeb;
+      --danger:#ef4444; --danger-bg:#fef2f2;
+      --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb;
+      --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563;
+      --gray-700:#374151; --gray-800:#1f2937; --gray-900:#111827;
+      --border:#e5e7eb; --bg:#f5f7ff;
+      --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif;
+      --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:9999px;
+      --shadow-sm:0 1px 3px rgba(0,0,0,.08);
+    }
+    html { -webkit-text-size-adjust:100%; }
+    body { font-family:var(--font-body); background:var(--bg); color:var(--gray-800); min-height:100dvh; display:flex; flex-direction:column; }
+    a { text-decoration:none; color:inherit; }
+
+    .top-bar { background:#fff; border-bottom:1px solid var(--border); padding:.875rem 1rem; display:flex; align-items:center; gap:.75rem; }
+    .top-bar-logo { font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--brand); }
+    .top-bar-avatar { width:36px; height:36px; border-radius:var(--r-full); background:var(--brand-light); color:var(--brand); display:grid; place-items:center; font-weight:700; font-size:.8rem; cursor:pointer; margin-left:auto; }
+
+    .page-content { flex:1; padding:1.5rem 1rem 2rem; max-width:480px; margin:0 auto; width:100%; }
+
+    /* Greeting */
+    .greeting { margin-bottom:1.75rem; }
+    .greeting-name { font-family:var(--font-display); font-size:1.35rem; font-weight:700; color:var(--gray-900); letter-spacing:-.02em; margin-bottom:.25rem; }
+    .greeting-sub { font-size:.85rem; color:var(--gray-500); line-height:1.5; }
+
+    /* Status hero */
+    .status-hero { border-radius:var(--r-lg); padding:1.5rem; margin-bottom:1.25rem; text-align:center; }
+    .status-hero.pending   { background:linear-gradient(135deg,#1a56db,#1239a5); color:#fff; }
+    .status-hero.approved  { background:linear-gradient(135deg,#12b76a,#059669); color:#fff; }
+    .status-hero.rejected  { background:linear-gradient(135deg,#ef4444,#dc2626); color:#fff; }
+    .status-hero.in-progress { background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; }
+    .status-emoji { font-size:2.5rem; margin-bottom:.75rem; }
+    .status-title { font-family:var(--font-display); font-size:1.2rem; font-weight:700; margin-bottom:.35rem; }
+    .status-desc  { font-size:.85rem; opacity:.85; line-height:1.5; }
+
+    /* Progress tracker */
+    .progress-card { background:#fff; border:1px solid var(--border); border-radius:var(--r-lg); padding:1.25rem; margin-bottom:1.25rem; box-shadow:var(--shadow-sm); }
+    .progress-title { font-family:var(--font-display); font-weight:700; font-size:.88rem; color:var(--gray-700); margin-bottom:1.25rem; }
+
+    .progress-step { display:flex; gap:1rem; margin-bottom:.125rem; }
+    .step-left { display:flex; flex-direction:column; align-items:center; width:28px; flex-shrink:0; }
+    .step-circle { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:.75rem; font-weight:700; flex-shrink:0; border:2px solid var(--border); background:#fff; color:var(--gray-400); }
+    .step-circle.done    { background:var(--success); border-color:var(--success); color:#fff; }
+    .step-circle.active  { background:var(--brand); border-color:var(--brand); color:#fff; }
+    .step-circle.failed  { background:var(--danger); border-color:var(--danger); color:#fff; }
+    .step-line { flex:1; width:2px; background:var(--border); margin:2px 0; min-height:24px; }
+    .step-line.done   { background:var(--success); }
+    .step-line.active { background:var(--brand); }
+
+    .step-right { flex:1; padding-bottom:1.25rem; }
+    .step-label { font-weight:600; font-size:.88rem; color:var(--gray-800); margin-bottom:.2rem; }
+    .step-label.done   { color:var(--success); }
+    .step-label.active { color:var(--brand); }
+    .step-label.failed { color:var(--danger); }
+    .step-desc  { font-size:.78rem; color:var(--gray-400); line-height:1.5; }
+
+    /* Info cards */
+    .info-card { background:#fff; border:1px solid var(--border); border-radius:var(--r-lg); padding:1rem 1.25rem; margin-bottom:1rem; box-shadow:var(--shadow-sm); }
+    .info-card-title { font-family:var(--font-display); font-size:.82rem; font-weight:700; color:var(--gray-500); text-transform:uppercase; letter-spacing:.07em; margin-bottom:.875rem; }
+    .info-row { display:flex; justify-content:space-between; align-items:center; padding:.55rem 0; border-bottom:1px solid var(--gray-100); font-size:.85rem; gap:1rem; }
+    .info-row:last-child { border-bottom:none; }
+    .info-key { color:var(--gray-400); font-weight:500; }
+    .info-val { color:var(--gray-800); font-weight:600; text-align:right; }
+
+    /* Guarantors */
+    .guarantor-item { display:flex; align-items:center; gap:.875rem; padding:.75rem 0; border-bottom:1px solid var(--gray-100); }
+    .guarantor-item:last-child { border-bottom:none; }
+    .g-avatar { width:38px; height:38px; border-radius:var(--r-full); background:var(--brand-light); color:var(--brand); display:grid; place-items:center; font-weight:700; font-size:.82rem; flex-shrink:0; }
+    .g-name { font-weight:600; font-size:.88rem; color:var(--gray-800); }
+    .g-sub  { font-size:.73rem; color:var(--gray-400); margin-top:.1rem; }
+
+    .badge { display:inline-flex; padding:.25rem .6rem; border-radius:var(--r-full); font-size:.7rem; font-weight:600; }
+    .badge-green { background:var(--success-bg); color:#065f46; }
+    .badge-amber { background:var(--warning-bg); color:#92400e; }
+    .badge-red   { background:var(--danger-bg);  color:#991b1b; }
+    .badge-blue  { background:var(--brand-light); color:var(--brand-dark); }
+    .badge-gray  { background:var(--gray-100);   color:var(--gray-600); }
+
+    /* Contact officer */
+    .contact-card { background:var(--brand-light); border:1px solid rgba(26,86,219,.2); border-radius:var(--r-lg); padding:1.25rem; margin-bottom:1rem; display:flex; align-items:center; gap:1rem; }
+    .contact-icon { width:44px; height:44px; border-radius:var(--r-full); background:var(--brand); color:#fff; display:grid; place-items:center; flex-shrink:0; }
+    .contact-name { font-weight:700; font-size:.9rem; color:var(--gray-900); }
+    .contact-role { font-size:.75rem; color:var(--gray-500); margin-top:.1rem; }
+    .contact-btn  { margin-left:auto; background:var(--brand); color:#fff; border:none; border-radius:var(--r-sm); padding:.5rem .875rem; font-family:var(--font-body); font-size:.78rem; font-weight:600; cursor:pointer; white-space:nowrap; text-decoration:none; display:inline-flex; align-items:center; }
+
+    .btn-signout { width:100%; padding:.875rem; background:#fff; border:1.5px solid var(--border); border-radius:var(--r-sm); font-family:var(--font-body); font-size:.9rem; font-weight:600; color:var(--danger); cursor:pointer; margin-top:.5rem; }
+
+    .skeleton { background:linear-gradient(90deg,var(--gray-100) 25%,var(--gray-200) 50%,var(--gray-100) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px; }
+    @keyframes shimmer { to { background-position:-200% 0; } }
+  </style>
+</head>
+<body>
+
+<header class="top-bar">
+  <span class="top-bar-logo">xchodedos</span>
+  <div class="top-bar-avatar" id="avatarBtn"></div>
+</header>
+
+<main class="page-content">
+
+  <div class="greeting">
+    <div class="greeting-name" id="greetName">Loading…</div>
+    <div class="greeting-sub">Here's the current status of your hire purchase application.</div>
+  </div>
+
+  <!-- Status hero -->
+  <div id="statusHero"><div class="skeleton" style="height:140px;border-radius:16px;margin-bottom:1.25rem"></div></div>
+
+  <!-- Progress tracker -->
+  <div class="progress-card">
+    <div class="progress-title">Application Progress</div>
+    <div id="progressSteps"><div class="skeleton" style="height:180px"></div></div>
+  </div>
+
+  <!-- Lead details -->
+  <div class="info-card" id="leadDetails" style="display:none">
+    <div class="info-card-title">Application Details</div>
+  </div>
+
+  <!-- Guarantors -->
+  <div class="info-card" id="guarantorCard" style="display:none">
+    <div class="info-card-title">Guarantors</div>
+  </div>
+
+  <!-- Officer contact -->
+  <div id="officerContact"></div>
+
+  <button class="btn-signout" onclick="handleLogout()">Sign Out</button>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  window.handleLogout = async () => {
+    if (confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; }
+  };
+
+  const STATUS_CONFIG = {
+    registered:          { hero:'pending',     emoji:'📋', title:'Application Received', desc:'Your application has been registered. Your officer will schedule your tests soon.' },
+    test_scheduled:      { hero:'in-progress', emoji:'📅', title:'Tests Scheduled',       desc:'Your drive test and knowledge test have been scheduled. Please prepare!' },
+    test_passed:         { hero:'in-progress', emoji:'✅', title:'Tests Passed!',          desc:'Great job! Your guarantor details and security deposit are being reviewed.' },
+    test_failed:         { hero:'rejected',    emoji:'❌', title:'Tests Not Passed',       desc:'Unfortunately you did not pass the required tests. Contact your officer for next steps.' },
+    guarantors_pending:  { hero:'in-progress', emoji:'👥', title:'Guarantors Pending',     desc:'We are verifying your guarantors. This usually takes 1–3 business days.' },
+    deposit_pending:     { hero:'in-progress', emoji:'💰', title:'Security Deposit Pending', desc:'Please pay your security deposit to complete your application.' },
+    approved:            { hero:'approved',    emoji:'🎉', title:'Application Approved!',  desc:'Congratulations! You have been approved. Your officer will assign your vehicle shortly.' },
+    rejected:            { hero:'rejected',    emoji:'🚫', title:'Application Rejected',   desc:'Your application was not successful. Please contact your officer for more information.' },
+  };
+
+  function getSteps(lead) {
+    const s = lead.status;
+    const steps = [
+      { key:'registered',         label:'Registered',          done: true,  desc:'Application received and profile created.' },
+      { key:'tests',              label:'Drive & Knowledge Tests', done: ['test_passed','test_failed','guarantors_pending','deposit_pending','approved','rejected'].includes(s), active: ['test_scheduled'].includes(s), failed: s==='test_failed', desc: lead.drive_test_passed===true ? `Drive: ${lead.drive_test_score||'—'}pts · Knowledge: ${lead.knowledge_test_score||'—'}pts` : 'Tests pending scheduling.' },
+      { key:'guarantors',         label:'Guarantors Verified',  done: ['deposit_pending','approved'].includes(s), active: s==='guarantors_pending', desc:'2 guarantors required.' },
+      { key:'deposit',            label:'Security Deposit',     done: lead.deposit_paid || s==='approved', active: s==='deposit_pending', desc: lead.deposit_paid ? `GHS ${parseFloat(lead.security_deposit).toFixed(2)} paid.` : `GHS ${parseFloat(lead.security_deposit||0).toFixed(2)} required.` },
+      { key:'approved',           label:'Approved & Assigned',  done: s==='approved', active: false, desc: s==='approved' ? 'You have been approved as a driver!' : 'Final approval and vehicle assignment.' },
+    ];
+    return steps;
+  }
+
+  async function init() {
+    const { data:{ session } } = await db.auth.getSession();
+    if (!session) { window.location.href='/index.html'; return; }
+
+    const { data: profile } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    if (!profile) { window.location.href='/index.html'; return; }
+    if (profile.role === 'driver')               { window.location.href='/pages/driver/dashboard.html'; return; }
+    if (profile.role === 'relationship_officer') { window.location.href='/pages/officer/dashboard.html'; return; }
+    if (profile.role === 'super_admin')          { window.location.href='/pages/admin/dashboard.html'; return; }
+
+    // Set greeting
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    document.getElementById('greetName').textContent = `${greet}, ${profile.full_name.split(' ')[0]} 👋`;
+
+    const ini = profile.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('avatarBtn').textContent = ini;
+
+    // Load lead record + guarantors + officer
+    const [leadRes, guarantorsRes] = await Promise.all([
+      db.from('leads').select('*').eq('profile_id', profile.id).order('created_at', { ascending:false }).limit(1),
+      db.from('leads').select('id').eq('profile_id', profile.id).limit(1),
+    ]);
+
+    const lead = leadRes.data?.[0];
+
+    if (!lead) {
+      document.getElementById('statusHero').innerHTML = `
+        <div class="status-hero pending">
+          <div class="status-emoji">📋</div>
+          <div class="status-title">No Application Found</div>
+          <div class="status-desc">Your application hasn't been created yet. Please contact your relationship officer.</div>
+        </div>`;
+      document.getElementById('progressSteps').innerHTML = '<div style="font-size:.85rem;color:var(--gray-400);text-align:center;padding:1rem">No application data.</div>';
+      return;
+    }
+
+    // Status hero
+    const cfg = STATUS_CONFIG[lead.status] || STATUS_CONFIG['registered'];
+    document.getElementById('statusHero').innerHTML = `
+      <div class="status-hero ${cfg.hero}">
+        <div class="status-emoji">${cfg.emoji}</div>
+        <div class="status-title">${cfg.title}</div>
+        <div class="status-desc">${cfg.desc}</div>
+      </div>`;
+
+    // Progress steps
+    const steps = getSteps(lead);
+    document.getElementById('progressSteps').innerHTML = steps.map((step, i) => {
+      const isLast = i === steps.length - 1;
+      const circleClass = step.failed ? 'failed' : step.done ? 'done' : step.active ? 'active' : '';
+      const labelClass  = step.failed ? 'failed' : step.done ? 'done' : step.active ? 'active' : '';
+      const lineClass   = step.done ? 'done' : step.active ? 'active' : '';
+      const icon = step.failed ? '✗' : step.done ? '✓' : (i+1).toString();
+      return `<div class="progress-step">
+        <div class="step-left">
+          <div class="step-circle ${circleClass}">${icon}</div>
+          ${!isLast ? `<div class="step-line ${lineClass}"></div>` : ''}
+        </div>
+        <div class="step-right">
+          <div class="step-label ${labelClass}">${step.label}</div>
+          <div class="step-desc">${step.desc}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    // Application details
+    const detailsEl = document.getElementById('leadDetails');
+    detailsEl.style.display = '';
+    const statusBadgeMap = { registered:'badge-blue', test_scheduled:'badge-amber', test_passed:'badge-green', test_failed:'badge-red', guarantors_pending:'badge-amber', deposit_pending:'badge-amber', approved:'badge-green', rejected:'badge-red' };
+    detailsEl.innerHTML += `
+      <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="badge ${statusBadgeMap[lead.status]||'badge-gray'}">${lead.status.replace(/_/g,' ')}</span></span></div>
+      <div class="info-row"><span class="info-key">Registered</span><span class="info-val">${new Date(lead.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div>
+      <div class="info-row"><span class="info-key">Drive Test</span><span class="info-val">${lead.drive_test_date ? new Date(lead.drive_test_date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : 'Not scheduled'}</span></div>
+      <div class="info-row"><span class="info-key">Drive Score</span><span class="info-val">${lead.drive_test_score !== null ? lead.drive_test_score+'pts' : '—'}</span></div>
+      <div class="info-row"><span class="info-key">Knowledge Test</span><span class="info-val">${lead.knowledge_test_date ? new Date(lead.knowledge_test_date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : 'Not scheduled'}</span></div>
+      <div class="info-row"><span class="info-key">Knowledge Score</span><span class="info-val">${lead.knowledge_test_score !== null ? lead.knowledge_test_score+'pts' : '—'}</span></div>
+      <div class="info-row"><span class="info-key">Security Deposit</span><span class="info-val">GHS ${parseFloat(lead.security_deposit||0).toFixed(2)}</span></div>
+      <div class="info-row"><span class="info-key">Deposit Paid</span><span class="info-val"><span class="badge ${lead.deposit_paid?'badge-green':'badge-amber'}">${lead.deposit_paid?'Paid':'Pending'}</span></span></div>
+      ${lead.notes ? `<div class="info-row"><span class="info-key">Notes</span><span class="info-val" style="font-size:.82rem">${lead.notes}</span></div>` : ''}`;
+
+    // Guarantors
+    const { data: guarantors } = await db.from('guarantors').select('*').eq('lead_id', lead.id);
+    const gCard = document.getElementById('guarantorCard');
+    gCard.style.display = '';
+    if (!guarantors || !guarantors.length) {
+      gCard.innerHTML += '<div style="font-size:.85rem;color:var(--gray-400);padding:.5rem 0">No guarantors on file.</div>';
+    } else {
+      gCard.innerHTML += guarantors.map(g => {
+        const ini = g.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+        return `<div class="guarantor-item">
+          <div class="g-avatar">${ini}</div>
+          <div style="flex:1">
+            <div class="g-name">${g.full_name}</div>
+            <div class="g-sub">${g.phone}${g.relationship?' · '+g.relationship:''}</div>
+          </div>
+          <span class="badge ${g.verified?'badge-green':'badge-amber'}">${g.verified?'Verified':'Pending'}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // Officer contact
+    if (profile.assigned_officer_id) {
+      const { data: officer } = await db.from('profiles').select('full_name, phone').eq('id', profile.assigned_officer_id).single();
+      if (officer) {
+        const oIni = officer.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+        document.getElementById('officerContact').innerHTML = `
+          <div class="contact-card">
+            <div class="contact-icon">${oIni}</div>
+            <div>
+              <div class="contact-name">${officer.full_name}</div>
+              <div class="contact-role">Your Relationship Officer</div>
+            </div>
+            ${officer.phone ? `<a href="tel:${officer.phone}" class="contact-btn">📞 Call</a>` : ''}
+          </div>`;
+      }
+    }
+  }
+  init();
+</script>
+</body>
+</html>
