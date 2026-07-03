@@ -298,11 +298,19 @@
     const { data, error } = await db
       .from('profiles')
       .select(`id, full_name, email, phone, is_active, id_number, address, created_at,
-               officer_driver_assignments(id, is_active)`)
+               officer_driver_assignments!officer_id(id, is_active)`)
       .eq('role', 'relationship_officer')
       .order('full_name');
 
-    if (error) { toast('Failed to load officers', 'error'); return; }
+    if (error) {
+      console.error('loadOfficers error:', error);
+      toast('Failed to load officers', 'error');
+      document.getElementById('officerList').innerHTML = `<div class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <p>Couldn't load officers. Pull down to try again.</p>
+      </div>`;
+      return;
+    }
     allOfficers = data || [];
     renderOfficers();
   }
