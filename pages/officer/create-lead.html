@@ -279,6 +279,12 @@
 
     try {
       // 1. Create profile for the lead
+      // NOTE: auth.signUp() logs the browser in as the newly created user
+      // (since email confirmation is disabled). We capture the officer's
+      // session first and restore it right after, so the rest of this flow
+      // still runs with officer permissions.
+      const { data: { session: officerSession } } = await db.auth.getSession();
+
       const email = document.getElementById('email').value.trim() || `lead_${Date.now()}@xchodedos.internal`;
       const { data: authData, error: authErr } = await db.auth.signUp({
         email, password: Math.random().toString(36).slice(-10) + 'Aa1!',
@@ -289,8 +295,16 @@
       const userId = authData.user?.id;
       if (!userId) throw new Error('User creation failed.');
 
+      // Restore officer session before any further writes
+      if (officerSession) {
+        await db.auth.setSession({
+          access_token: officerSession.access_token,
+          refresh_token: officerSession.refresh_token,
+        });
+      }
+
       // 2. Update profile details
-      await db.from('profiles').update({
+      const { error: profileErr } = await db.from('profiles').update({
         full_name: document.getElementById('fullName').value.trim(),
         phone: document.getElementById('phone').value.trim(),
         id_number: document.getElementById('idNumber').value.trim(),
@@ -300,6 +314,7 @@
         emergency_phone: document.getElementById('emergencyPhone').value.trim() || null,
         role: 'lead',
       }).eq('id', userId);
+      if (profileErr) throw profileErr;
 
       // 3. Create lead record
       const { data: lead, error: leadErr } = await db.from('leads').insert({
@@ -314,10 +329,11 @@
       if (leadErr) throw leadErr;
 
       // 4. Create 2 guarantors
-      await db.from('guarantors').insert([
+      const { error: guarantorErr } = await db.from('guarantors').insert([
         { lead_id: lead.id, full_name: document.getElementById('g1Name').value.trim(), phone: document.getElementById('g1Phone').value.trim(), id_number: document.getElementById('g1Id').value.trim(), relationship: document.getElementById('g1Rel').value.trim()||null, address: document.getElementById('g1Address').value.trim()||null },
         { lead_id: lead.id, full_name: document.getElementById('g2Name').value.trim(), phone: document.getElementById('g2Phone').value.trim(), id_number: document.getElementById('g2Id').value.trim(), relationship: document.getElementById('g2Rel').value.trim()||null, address: document.getElementById('g2Address').value.trim()||null },
       ]);
+      if (guarantorErr) throw guarantorErr;
 
       document.getElementById('step3').style.display='none';
       document.getElementById('successName').textContent = document.getElementById('fullName').value.trim();
