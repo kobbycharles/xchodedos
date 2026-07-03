@@ -289,6 +289,30 @@ create policy "Officers can update their own profile"
 create policy "Super admin can insert profiles"
   on profiles for insert with check (current_role_is('super_admin'));
 
+-- DRIVER_ASSIGNMENTS policies
+create policy "Officers and admins can view all driver assignments"
+  on driver_assignments for select using (
+    current_role_is('relationship_officer') or
+    current_role_is('super_admin')
+  );
+
+create policy "Drivers can view their own assignments"
+  on driver_assignments for select using (
+    driver_id = auth.uid()
+  );
+
+create policy "Officers and admins can insert driver assignments"
+  on driver_assignments for insert with check (
+    current_role_is('relationship_officer') or
+    current_role_is('super_admin')
+  );
+
+create policy "Officers and admins can update driver assignments"
+  on driver_assignments for update using (
+    current_role_is('relationship_officer') or
+    current_role_is('super_admin')
+  );
+
 -- CARS policies
 create policy "Drivers can view their assigned car"
   on cars for select using (

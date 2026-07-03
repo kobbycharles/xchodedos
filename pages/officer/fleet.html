@@ -236,7 +236,8 @@
   };
 
   async function loadCars() {
-    const { data } = await db.from('cars').select('*, driver_assignments(profiles(full_name))').neq('status','retired').order('created_at', { ascending:false });
+    const { data, error } = await db.from('cars').select('*, driver_assignments(profiles(full_name))').neq('status','retired').order('created_at', { ascending:false });
+    if (error) { console.error(error); toast('Failed to load fleet.', 'error'); allCars = []; render(); return; }
     allCars = data || [];
     render();
   }
