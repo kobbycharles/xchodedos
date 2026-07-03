@@ -295,12 +295,11 @@
   officers = oRes.data || [];
   drivers  = dRes.data || [];
 
-  // Pre-select officer from URL param
+  // Pre-select officer from URL param (applied once step functions exist, below)
   const params = new URLSearchParams(location.search);
   const preOfficerId = params.get('officer');
   if (preOfficerId) {
     selectedOfficer = officers.find(o => o.id === preOfficerId) || null;
-    if (selectedOfficer) { goToStep2(); return; }
   }
 
   window.renderOfficers = function() {
@@ -430,7 +429,12 @@
     goToStep1();
   };
 
-  renderOfficers();
+  if (selectedOfficer) {
+    document.getElementById('step1Next').disabled = false;
+    goToStep2();
+  } else {
+    renderOfficers();
+  }
 </script>
 </body>
 </html>
