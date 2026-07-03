@@ -1,6 +1,6 @@
 // js/toast.js — Toast notifications
 
-function toast(message, type = 'default', duration = 3000) {
+export function toast(message, type = 'default', duration = 3000) {
   let container = document.getElementById('toast-container');
   if (!container) {
     container = document.createElement('div');
