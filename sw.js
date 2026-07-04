@@ -1,7 +1,7 @@
 // sw.js — xchodedos Service Worker
 // Caches app shell for offline use and fast loads
 
-const CACHE_NAME = 'xchodedos-v2';
+const CACHE_NAME = 'xchodedos-v3';
 
 // Core app shell files to cache on install
 const PRECACHE = [
@@ -66,24 +66,35 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for app shell (HTML, CSS, JS)
+  // App shell (HTML, CSS, JS): stale-while-revalidate — serve the cached
+  // version instantly for speed, but always fetch a fresh copy in the
+  // background and update the cache for next time. This means content
+  // updates get picked up on the *next* load without waiting for a full
+  // service-worker version bump to invalidate anything.
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        // Cache successful GET responses
+    caches.open(CACHE_NAME).then(async cache => {
+      const cached = await cache.match(event.request);
+      const networkFetch = fetch(event.request).then(response => {
         if (event.request.method === 'GET' && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          cache.put(event.request, response.clone());
         }
         return response;
-      }).catch(() => {
-        // Offline fallback for HTML pages
-        if (event.request.headers.get('accept')?.includes('text/html')) {
-          return caches.match('/index.html');
-        }
-        return new Response('', { status: 503 });
-      });
+      }).catch(() => null);
+
+      if (cached) {
+        // Kick off the revalidation but don't block the response on it
+        networkFetch;
+        return cached;
+      }
+
+      const fresh = await networkFetch;
+      if (fresh) return fresh;
+
+      // Offline fallback for HTML pages
+      if (event.request.headers.get('accept')?.includes('text/html')) {
+        return caches.match('/index.html');
+      }
+      return new Response('', { status: 503 });
     })
   );
 });

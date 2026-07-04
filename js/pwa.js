@@ -6,7 +6,18 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
       .then(reg => {
         console.log('[PWA] Registered:', reg.scope);
+
+        // Periodic check while the tab is open
         setInterval(() => reg.update(), 60000);
+
+        // Check immediately whenever the app is reopened / regains focus —
+        // this is exactly when a stale cached version is most likely to be
+        // showing, since the tab may have been backgrounded for hours/days.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') reg.update();
+        });
+        window.addEventListener('focus', () => reg.update());
+
         reg.addEventListener('updatefound', () => {
           const nw = reg.installing;
           nw.addEventListener('statechange', () => {
@@ -15,6 +26,20 @@ if ('serviceWorker' in navigator) {
         });
       })
       .catch(err => console.warn('[PWA] SW failed:', err));
+
+    // If the active service worker changes (new version took control),
+    // make sure we're not left showing a stale page — but only reload
+    // automatically if the person hasn't got unsaved input focused,
+    // to avoid yanking away a form they're in the middle of filling in.
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      const active = document.activeElement;
+      const isEditing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      if (isEditing) return; // let the update banner's manual button handle it instead
+      refreshing = true;
+      window.location.reload();
+    });
   });
 }
 
