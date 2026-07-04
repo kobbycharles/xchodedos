@@ -227,7 +227,8 @@
     if (!driverIds.length) {
       checkList.innerHTML = `<div class="empty-state"><p>No pending checks.</p></div>`;
     } else {
-      const { data: checks } = await db.from('pre_use_checks').select('id, check_date, driver_id, profiles(full_name)').in('driver_id', driverIds).eq('status','pending').order('submitted_at', { ascending:false }).limit(3);
+      const { data: checks, error: checksErr } = await db.from('pre_use_checks').select('id, check_date, driver_id, profiles!driver_id(full_name)').in('driver_id', driverIds).eq('status','pending').order('submitted_at', { ascending:false }).limit(3);
+      if (checksErr) console.error('pending checks error:', checksErr);
       if (!checks || !checks.length) {
         checkList.innerHTML = `<div class="empty-state"><p>No pending checks. ✅</p></div>`;
       } else {

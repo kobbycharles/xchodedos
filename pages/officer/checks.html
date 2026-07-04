@@ -222,7 +222,8 @@
     const { data: asgns } = await db.from('officer_driver_assignments').select('driver_id').eq('officer_id', officerProfile.id).eq('is_active', true);
     const ids = (asgns||[]).map(a=>a.driver_id);
     if (!ids.length) { allChecks=[]; render(); return; }
-    const { data } = await db.from('pre_use_checks').select('*, profiles(full_name), cars(plate_number, make, model)').in('driver_id', ids).order('submitted_at', { ascending:false });
+    const { data, error } = await db.from('pre_use_checks').select('*, profiles!driver_id(full_name), cars(plate_number, make, model)').in('driver_id', ids).order('submitted_at', { ascending:false });
+    if (error) { console.error('loadChecks error:', error); toast('Failed to load checks', 'error'); }
     allChecks = data || [];
     render();
   }
