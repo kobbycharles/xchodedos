@@ -354,7 +354,15 @@
   }
 
   async function redirectByRole(userId) {
-    const { data } = await db.from('profiles').select('role').eq('id', userId).single();
+    const { data, error } = await db.from('profiles').select('role').eq('id', userId).single();
+    if (error) {
+      console.error('redirectByRole error:', error);
+      errorMsg.textContent = 'Something went wrong loading your account. Please try again.';
+      errorMsg.classList.add('show');
+      loginBtn.classList.remove('loading');
+      loginBtn.disabled = false;
+      return;
+    }
     if (data?.role) {
       window.location.href = '/' + (ROLE_ROUTES[data.role] || '');
     }

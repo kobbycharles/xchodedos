@@ -225,16 +225,16 @@ create trigger trg_leads_updated before update on leads
 create or replace function handle_new_user()
 returns trigger as $$
 begin
-  insert into profiles (id, full_name, email, role)
+  insert into public.profiles (id, full_name, email, role)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', 'New User'),
     new.email,
-    coalesce((new.raw_user_meta_data->>'role')::user_role, 'lead')
+    coalesce((new.raw_user_meta_data->>'role')::public.user_role, 'lead')
   );
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 create trigger on_auth_user_created
   after insert on auth.users
@@ -275,6 +275,12 @@ create policy "Officers can view their drivers"
         and oda.driver_id = profiles.id
         and oda.is_active = true
     )
+  );
+
+create policy "Officers and admins can view lead profiles"
+  on profiles for select using (
+    (current_role_is('relationship_officer') or current_role_is('super_admin'))
+    and exists (select 1 from leads where leads.profile_id = profiles.id)
   );
 
 create policy "Super admin can view all profiles"
@@ -345,11 +351,26 @@ create policy "Officers and admins can update cars"
 -- LEADS policies
 create policy "Leads can view own record"
   on leads for select using (
-    exists (select 1 from profiles where id = auth.uid() and profiles.id = leads.profile_id)
+    profile_id = auth.uid()
   );
 
 create policy "Officers can view and manage leads they created"
   on leads for all using (
+    current_role_is('relationship_officer') or
+    current_role_is('super_admin')
+  );
+
+-- GUARANTORS policies
+create policy "Leads can view own guarantors"
+  on guarantors for select using (
+    exists (
+      select 1 from leads
+      where leads.id = guarantors.lead_id and leads.profile_id = auth.uid()
+    )
+  );
+
+create policy "Officers and admins can manage guarantors"
+  on guarantors for all using (
     current_role_is('relationship_officer') or
     current_role_is('super_admin')
   );
