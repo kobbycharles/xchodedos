@@ -190,17 +190,17 @@
         <input class="form-input" type="search" id="officerSearch" placeholder="Search officers…" oninput="renderOfficers()"/>
       </div>
       <div id="officerSelectList"></div>
-      <button class="btn btn-primary btn-full mt-2" onclick="goToStep2()" id="step1Next" disabled>Next: Select Driver →</button>
+      <button class="btn btn-primary btn-full mt-2" onclick="goToStep2()" id="step1Next" disabled>Next: Select Driver/Lead →</button>
     </div>
 
     <!-- Step 2: Select Driver -->
     <div id="step2" style="display:none">
       <div class="section-head" style="margin-top:0">
-        <span class="section-title">Select Driver</span>
+        <span class="section-title">Select Driver / Approved Lead</span>
       </div>
       <div class="search-bar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="form-input" type="search" id="driverSearch" placeholder="Search drivers…" oninput="renderDrivers()"/>
+        <input class="form-input" type="search" id="driverSearch" placeholder="Search drivers or approved leads…" oninput="renderDrivers()"/>
       </div>
       <div id="driverSelectList"></div>
       <div style="display:flex;gap:.75rem;margin-top:1rem">
@@ -224,10 +224,14 @@
           <span class="summary-key">Driver</span>
           <span class="summary-val" id="confirmDriver"></span>
         </div>
+        <div class="summary-row" id="currentAssignmentRow" style="display:none">
+          <span class="summary-key">Currently With</span>
+          <span class="summary-val" id="currentAssignmentVal" style="color:var(--warning)"></span>
+        </div>
       </div>
 
       <div class="card">
-        <p style="font-size:.85rem;color:var(--gray-500);line-height:1.6">
+        <p style="font-size:.85rem;color:var(--gray-500);line-height:1.6" id="assignmentNote">
           This will assign the selected driver to the officer. The officer will be able to monitor, record payments, and approve checks for this driver.
         </p>
       </div>
@@ -285,15 +289,29 @@
 
   let officers = [], drivers = [];
   let selectedOfficer = null, selectedDriver = null;
+  let activeAssignments = []; // [{ id, officer_id, driver_id }]
 
-  // Load data
-  const [oRes, dRes] = await Promise.all([
+  // Load data. Drivers pool includes role='driver' plus approved leads
+  // (so a lead can be assigned/reassigned to an officer even before a
+  // vehicle is assigned — no need to wait for that step).
+  const [oRes, dRes, leadRes, assignRes] = await Promise.all([
     db.from('profiles').select('id, full_name, email, phone').eq('role', 'relationship_officer').eq('is_active', true).order('full_name'),
     db.from('profiles').select('id, full_name, email, phone').eq('role', 'driver').eq('is_active', true).order('full_name'),
+    db.from('leads').select('profile_id, profiles!leads_profile_id_fkey(id, full_name, email, phone, is_active)').eq('status', 'approved'),
+    db.from('officer_driver_assignments').select('id, officer_id, driver_id').eq('is_active', true),
   ]);
 
   officers = oRes.data || [];
-  drivers  = dRes.data || [];
+  const approvedLeadProfiles = (leadRes.data || [])
+    .map(l => l.profiles)
+    .filter(p => p && p.is_active);
+  drivers = [...(dRes.data || []), ...approvedLeadProfiles];
+  activeAssignments = assignRes.data || [];
+
+  function currentOfficerFor(driverId) {
+    const a = activeAssignments.find(x => x.driver_id === driverId);
+    return a ? officers.find(o => o.id === a.officer_id) : null;
+  }
 
   // Pre-select officer from URL param (applied once step functions exist, below)
   const params = new URLSearchParams(location.search);
@@ -313,18 +331,19 @@
   window.renderDrivers = function() {
     const q = document.getElementById('driverSearch').value.toLowerCase();
     const el = document.getElementById('driverSelectList');
-    const filtered = drivers.filter(d => d.full_name.toLowerCase().includes(q) || d.email.toLowerCase().includes(d));
+    const filtered = drivers.filter(d => d.full_name.toLowerCase().includes(q) || d.email.toLowerCase().includes(q));
     el.innerHTML = filtered.length ? filtered.map(d => cardHTML(d, selectedDriver?.id === d.id, 'selectDriver')).join('') :
-      `<div class="empty-state"><p>No drivers found.</p></div>`;
+      `<div class="empty-state"><p>No drivers or approved leads found.</p></div>`;
   };
 
   function cardHTML(p, selected, fn) {
     const ini = p.full_name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+    const current = fn === 'selectDriver' ? currentOfficerFor(p.id) : null;
     return `<div class="select-card ${selected ? 'selected' : ''}" onclick="${fn}('${p.id}')">
       <div class="list-avatar" style="width:38px;height:38px;font-size:.8rem">${ini}</div>
       <div class="sc-info">
         <div class="sc-name">${p.full_name}</div>
-        <div class="sc-sub">${p.email}</div>
+        <div class="sc-sub">${p.email}${current ? ` · <span style="color:var(--warning)">with ${current.full_name}</span>` : ''}</div>
       </div>
       <div class="radio-circle"><div class="radio-dot"></div></div>
     </div>`;
@@ -375,6 +394,21 @@
     document.getElementById('step3').style.display = '';
     document.getElementById('confirmOfficer').textContent = selectedOfficer.full_name;
     document.getElementById('confirmDriver').textContent = selectedDriver.full_name;
+
+    const current = currentOfficerFor(selectedDriver.id);
+    const row = document.getElementById('currentAssignmentRow');
+    const note = document.getElementById('assignmentNote');
+    if (current && current.id !== selectedOfficer.id) {
+      row.style.display = '';
+      document.getElementById('currentAssignmentVal').textContent = current.full_name;
+      note.textContent = `${selectedDriver.full_name} is currently managed by ${current.full_name}. Confirming will move them to ${selectedOfficer.full_name} — ${current.full_name} will no longer see this driver.`;
+    } else if (current && current.id === selectedOfficer.id) {
+      row.style.display = 'none';
+      note.textContent = `${selectedDriver.full_name} is already assigned to ${selectedOfficer.full_name}. No changes needed.`;
+    } else {
+      row.style.display = 'none';
+      note.textContent = 'This will assign the selected driver to the officer. The officer will be able to monitor, record payments, and approve checks for this driver.';
+    }
     updateSteps(3);
   };
 
@@ -386,25 +420,44 @@
     errEl.style.display = 'none';
 
     try {
-      // Check if already assigned
-      const { data: existing } = await db
+      const current = currentOfficerFor(selectedDriver.id);
+
+      if (current && current.id === selectedOfficer.id) {
+        // Already assigned to this exact officer — nothing to do.
+        document.getElementById('step3').style.display = 'none';
+        document.getElementById('successMsg').textContent =
+          `${selectedDriver.full_name} is already assigned to ${selectedOfficer.full_name}.`;
+        document.getElementById('successScreen').classList.add('show');
+        return;
+      }
+
+      if (current) {
+        // Reassignment: deactivate the old link first.
+        const { error: deactivateErr } = await db
+          .from('officer_driver_assignments')
+          .update({ is_active: false })
+          .eq('officer_id', current.id)
+          .eq('driver_id', selectedDriver.id)
+          .eq('is_active', true);
+        if (deactivateErr) throw deactivateErr;
+      }
+
+      // A (officer, driver) pair is unique — if this exact pairing existed
+      // before (e.g. reassigned away and now being reassigned back),
+      // reactivate that row instead of inserting a duplicate.
+      const { data: priorPair } = await db
         .from('officer_driver_assignments')
         .select('id')
         .eq('officer_id', selectedOfficer.id)
         .eq('driver_id', selectedDriver.id)
-        .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
-      if (existing) {
-        errEl.textContent = `${selectedDriver.full_name} is already assigned to ${selectedOfficer.full_name}.`;
-        errEl.style.display = 'block';
-        btn.disabled = false; btn.textContent = 'Confirm'; return;
-      }
+      const sessionRes = await db.auth.getSession();
+      const actingUserId = sessionRes.data.session?.user?.id || null;
 
-      const { error } = await db.from('officer_driver_assignments').insert({
-        officer_id: selectedOfficer.id,
-        driver_id:  selectedDriver.id,
-      });
+      const error = priorPair
+        ? (await db.from('officer_driver_assignments').update({ is_active: true, assigned_by: actingUserId, assigned_at: new Date().toISOString() }).eq('id', priorPair.id)).error
+        : (await db.from('officer_driver_assignments').insert({ officer_id: selectedOfficer.id, driver_id: selectedDriver.id, assigned_by: actingUserId })).error;
 
       if (error) throw error;
 
@@ -412,8 +465,9 @@
       await db.from('profiles').update({ assigned_officer_id: selectedOfficer.id }).eq('id', selectedDriver.id);
 
       document.getElementById('step3').style.display = 'none';
-      document.getElementById('successMsg').textContent =
-        `${selectedDriver.full_name} has been assigned to ${selectedOfficer.full_name}.`;
+      document.getElementById('successMsg').textContent = current
+        ? `${selectedDriver.full_name} has been reassigned from ${current.full_name} to ${selectedOfficer.full_name}.`
+        : `${selectedDriver.full_name} has been assigned to ${selectedOfficer.full_name}.`;
       document.getElementById('successScreen').classList.add('show');
 
     } catch(e) {

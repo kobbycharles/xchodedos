@@ -361,6 +361,20 @@
       ]);
       if (guarantorErr) throw guarantorErr;
 
+      // 5. Auto-assign the creating officer to this lead — no admin
+      //    approval needed. Non-fatal if it fails; the admin can still
+      //    assign/reassign manually from the Assign Driver page.
+      const { error: assignErr } = await db.from('officer_driver_assignments').insert({
+        officer_id: officerProfile.id,
+        driver_id: userId,
+        assigned_by: officerProfile.id,
+      });
+      if (assignErr) {
+        console.error('auto-assign officer error:', assignErr);
+      } else {
+        await db.from('profiles').update({ assigned_officer_id: officerProfile.id }).eq('id', userId);
+      }
+
       document.getElementById('step3').style.display='none';
       document.getElementById('successName').textContent = document.getElementById('fullName').value.trim();
       document.getElementById('successEmail').textContent = email;
