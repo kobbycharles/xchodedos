@@ -454,14 +454,22 @@
       // 5. Promote lead → driver if needed + update lead status
       const { error: roleErr } = await db.from('profiles').update({ role:'driver' }).eq('id', selectedDriver.id);
       if (roleErr) throw roleErr;
-      const { data: updatedLeads, error: leadErr } = await db.from('leads').update({ status:'approved' }).eq('profile_id', selectedDriver.id).neq('status','approved').select();
+      const { error: leadErr } = await db.from('leads').update({ status:'approved' }).eq('profile_id', selectedDriver.id).neq('status','approved');
       if (leadErr) throw leadErr;
 
       // 5b. Record the initial deposit as a paid payment, so it counts toward
-      // the driver's total paid. Only do this on first approval, so
-      // re-assigning an existing driver to a different car doesn't double-count it.
-      const isFirstApproval = updatedLeads && updatedLeads.length > 0;
-      if (isFirstApproval && deposit > 0) {
+      // the driver's total paid. Gate this on whether a deposit has already
+      // been recorded for this driver (not on the lead-status transition —
+      // leads can be approved separately, before a vehicle is ever assigned,
+      // so that's not a reliable "first time" signal). This still prevents
+      // double-counting on reassignment to a different car.
+      const { data: existingDeposit } = await db
+        .from('payments')
+        .select('id')
+        .eq('driver_id', selectedDriver.id)
+        .eq('payment_method', 'deposit')
+        .maybeSingle();
+      if (!existingDeposit && deposit > 0) {
         const { error: depositErr } = await db.from('payments').insert({
           driver_id:      selectedDriver.id,
           assignment_id:  newAssignment.id,
