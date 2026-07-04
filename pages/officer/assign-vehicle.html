@@ -398,13 +398,40 @@
       endDateObj.setDate(endDateObj.getDate() + weeks * 7);
       const end = endDateObj.toISOString().split('T')[0];
 
-      // 1. Deactivate any existing assignment for this driver
+      // 1. Deactivate any existing assignment for this driver, capturing
+      //    which car they were previously on (if any) so we only free that
+      //    specific car — not every other assigned car in the fleet.
+      const { data: prevAssignment, error: prevFetchErr } = await db
+        .from('driver_assignments')
+        .select('id, car_id')
+        .eq('driver_id', selectedDriver.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (prevFetchErr) throw prevFetchErr;
+
       const { error: deactErr } = await db.from('driver_assignments').update({ is_active:false, unassigned_at:new Date().toISOString() }).eq('driver_id', selectedDriver.id).eq('is_active', true);
       if (deactErr) throw deactErr;
 
-      // 2. Mark previous car as available if different
-      const { error: prevCarErr } = await db.from('cars').update({ status:'available' }).eq('status','assigned').neq('id', selectedCar.id);
-      if (prevCarErr) throw prevCarErr;
+      // 2. Mark ONLY this driver's previous car as available (if they had
+      //    one, and it's not the same car they're being re-assigned to).
+      if (prevAssignment?.car_id && prevAssignment.car_id !== selectedCar.id) {
+        const { error: prevCarErr } = await db.from('cars').update({ status:'available' }).eq('id', prevAssignment.car_id);
+        if (prevCarErr) throw prevCarErr;
+      }
+
+      // 2b. Safety net: refuse to proceed if the selected car somehow already
+      //     has a different active assignment (e.g. stale UI, concurrent
+      //     assignment by another officer at the same time).
+      const { data: carConflict, error: conflictErr } = await db
+        .from('driver_assignments')
+        .select('id, driver_id')
+        .eq('car_id', selectedCar.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (conflictErr) throw conflictErr;
+      if (carConflict && carConflict.driver_id !== selectedDriver.id) {
+        throw new Error('This vehicle was just assigned to another driver. Please pick a different vehicle.');
+      }
 
       // 3. Create new assignment
       const { data: newAssignment, error: aError } = await db.from('driver_assignments').insert({
