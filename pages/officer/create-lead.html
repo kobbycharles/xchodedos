@@ -329,7 +329,7 @@
       if (!userId) throw new Error('User creation failed.');
 
       // 2. Update profile details
-      await db.from('profiles').update({
+      const { error: profileErr } = await db.from('profiles').update({
         full_name: document.getElementById('fullName').value.trim(),
         phone: document.getElementById('phone').value.trim(),
         id_number: document.getElementById('idNumber').value.trim(),
@@ -338,7 +338,9 @@
         emergency_contact: document.getElementById('emergencyName').value.trim() || null,
         emergency_phone: document.getElementById('emergencyPhone').value.trim() || null,
         role: 'lead',
+        temp_login_password: loginPassword,
       }).eq('id', userId);
+      if (profileErr) throw profileErr;
 
       // 3. Create lead record
       const { data: lead, error: leadErr } = await db.from('leads').insert({
@@ -353,10 +355,11 @@
       if (leadErr) throw leadErr;
 
       // 4. Create 2 guarantors
-      await db.from('guarantors').insert([
+      const { error: guarantorErr } = await db.from('guarantors').insert([
         { lead_id: lead.id, full_name: document.getElementById('g1Name').value.trim(), phone: document.getElementById('g1Phone').value.trim(), id_number: document.getElementById('g1Id').value.trim(), relationship: document.getElementById('g1Rel').value.trim()||null, address: document.getElementById('g1Address').value.trim()||null },
         { lead_id: lead.id, full_name: document.getElementById('g2Name').value.trim(), phone: document.getElementById('g2Phone').value.trim(), id_number: document.getElementById('g2Id').value.trim(), relationship: document.getElementById('g2Rel').value.trim()||null, address: document.getElementById('g2Address').value.trim()||null },
       ]);
+      if (guarantorErr) throw guarantorErr;
 
       document.getElementById('step3').style.display='none';
       document.getElementById('successName').textContent = document.getElementById('fullName').value.trim();

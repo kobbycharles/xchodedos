@@ -33,6 +33,7 @@ create table profiles (
   emergency_phone text,
   assigned_officer_id uuid references profiles(id),
   is_active boolean default true,
+  temp_login_password text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -299,6 +300,12 @@ create policy "Officers and admins can update lead and driver profiles"
     and role in ('lead','driver')
   );
 
+create policy "Officers and admins can delete lead and driver profiles"
+  on profiles for delete using (
+    (current_role_is('relationship_officer') or current_role_is('super_admin'))
+    and role in ('lead','driver')
+  );
+
 create policy "Super admin can insert profiles"
   on profiles for insert with check (current_role_is('super_admin'));
 
@@ -408,3 +415,9 @@ create policy "Super admin manages officer-driver assignments"
 
 create policy "Officers view their own assignments"
   on officer_driver_assignments for select using (officer_id = auth.uid());
+
+create policy "Officers can insert their own driver assignments"
+  on officer_driver_assignments for insert with check (officer_id = auth.uid());
+
+create policy "Officers can update their own driver assignments"
+  on officer_driver_assignments for update using (officer_id = auth.uid());

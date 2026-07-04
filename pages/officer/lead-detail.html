@@ -98,6 +98,18 @@
 
     .notes-box { background:var(--gray-50); border-radius:var(--r-sm); padding:.75rem; font-size:.82rem; color:var(--gray-600); line-height:1.5; }
 
+    /* Credentials card */
+    .cred-card { background:var(--brand-light); border:1px solid rgba(26,86,219,.25); border-radius:var(--r-md); padding:1rem; margin-bottom:.875rem; }
+    .cred-row { display:flex; justify-content:space-between; align-items:center; padding:.5rem 0; }
+    .cred-row + .cred-row { border-top:1px solid rgba(26,86,219,.15); }
+    .cred-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--brand-dark); }
+    .cred-value { font-family:monospace; font-size:.88rem; font-weight:600; color:var(--gray-900); word-break:break-all; }
+    .cred-copy { background:none; border:none; color:var(--brand); font-size:.75rem; font-weight:700; cursor:pointer; padding:.2rem .5rem; flex-shrink:0; }
+
+    /* Danger zone */
+    .danger-zone { border:1px solid #fca5a5; }
+    .danger-zone .action-card-title { color:#991b1b; }
+
     .skeleton { background:linear-gradient(90deg,var(--gray-100) 25%,var(--gray-200) 50%,var(--gray-100) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px; }
     @keyframes shimmer { to { background-position:-200% 0; } }
 
@@ -144,6 +156,11 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let officerProfile = null, lead = null, leadProfile = null, guarantors = [];
+  let editDetailsOpen = false;
+
+  function escAttr(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
 
   function toast(msg, type='default') {
     const c=document.getElementById('toast-container'); const el=document.createElement('div');
@@ -190,10 +207,40 @@
         <span class="badge ${statusBadge[lead.status]||'badge-gray'}">${lead.status.replace(/_/g,' ')}</span>
       </div>
 
+      <!-- Login Credentials (shown once approved, so the RO can send them to the lead) -->
+      ${lead.status === 'approved' ? `
+      <div class="action-card cred-card" style="background:var(--brand-light)">
+        <div class="action-card-title" style="color:var(--brand-dark)">🔑 Login Credentials</div>
+        <div class="cred-row">
+          <div><div class="cred-label">Email</div><div class="cred-value">${leadProfile.email}</div></div>
+          <button class="cred-copy" onclick="copyCred('${escAttr(leadProfile.email)}', this)">Copy</button>
+        </div>
+        ${leadProfile.temp_login_password ? `
+        <div class="cred-row">
+          <div><div class="cred-label">Password</div><div class="cred-value">${leadProfile.temp_login_password}</div></div>
+          <button class="cred-copy" onclick="copyCred('${escAttr(leadProfile.temp_login_password)}', this)">Copy</button>
+        </div>
+        <button class="btn btn-outline btn-full" style="margin-top:.75rem;background:#fff" onclick="copyBothCreds()">📋 Copy Email + Password</button>
+        ` : `<p style="font-size:.78rem;color:var(--gray-500);margin-top:.5rem">No saved password on file (it may have been created before this feature, or already cleared). You can set a new one from Edit Details.</p>`}
+      </div>` : ''}
+
       <!-- Pipeline -->
       <div class="pipeline-card">
         <div class="pipeline-title">Application Pipeline</div>
         ${renderPipeline()}
+      </div>
+
+      <!-- Manual status override -->
+      <div class="action-card">
+        <div class="action-card-title">🔀 Status</div>
+        <div class="form-group">
+          <label class="form-label">Application Status</label>
+          <select class="form-select" id="statusSelect">
+            ${['registered','test_scheduled','test_passed','test_failed','guarantors_pending','deposit_pending','approved','rejected'].map(s =>
+              `<option value="${s}" ${lead.status===s?'selected':''}>${s.replace(/_/g,' ')}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-outline btn-full" onclick="updateStatus()">Update Status</button>
       </div>
 
       <!-- Test scores -->
@@ -298,6 +345,47 @@
         <textarea class="form-input" id="leadNotes" rows="3" style="resize:vertical" placeholder="Add notes about this lead…">${lead.notes||''}</textarea>
         <button class="btn btn-outline btn-full" style="margin-top:.75rem" onclick="saveNotes()">Save Notes</button>
       </div>
+
+      <!-- Edit Details -->
+      <div class="action-card">
+        <div class="action-card-title">
+          ✏️ Personal Details
+          <button class="btn btn-outline" style="padding:.35rem .7rem;font-size:.72rem" onclick="toggleEditDetails()">${editDetailsOpen?'Cancel':'Edit'}</button>
+        </div>
+        ${!editDetailsOpen ? `
+          <div class="notes-box" style="line-height:1.9">
+            <div><strong>Name:</strong> ${leadProfile.full_name}</div>
+            <div><strong>Phone:</strong> ${leadProfile.phone||'—'}</div>
+            <div><strong>Email:</strong> ${leadProfile.email||'—'}</div>
+            <div><strong>ID Number:</strong> ${leadProfile.id_number||'—'}</div>
+            <div><strong>Address:</strong> ${leadProfile.address||'—'}</div>
+            <div><strong>Emergency:</strong> ${leadProfile.emergency_contact||'—'}${leadProfile.emergency_phone?' · '+leadProfile.emergency_phone:''}</div>
+          </div>` : `
+          <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="editFullName" value="${escAttr(leadProfile.full_name||'')}"/></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="editPhone" value="${escAttr(leadProfile.phone||'')}"/></div>
+            <div class="form-group"><label class="form-label">ID Number</label><input class="form-input" id="editIdNumber" value="${escAttr(leadProfile.id_number||'')}"/></div>
+          </div>
+          <div class="form-group"><label class="form-label">Address</label><input class="form-input" id="editAddress" value="${escAttr(leadProfile.address||'')}"/></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Emergency Contact</label><input class="form-input" id="editEmergencyName" value="${escAttr(leadProfile.emergency_contact||'')}"/></div>
+            <div class="form-group"><label class="form-label">Emergency Phone</label><input class="form-input" id="editEmergencyPhone" value="${escAttr(leadProfile.emergency_phone||'')}"/></div>
+          </div>
+          <div class="error-box" id="editErr"></div>
+          <button class="btn btn-primary btn-full" onclick="saveDetails()">Save Details</button>`}
+      </div>
+
+      <!-- Danger zone -->
+      <div class="action-card danger-zone">
+        <div class="action-card-title">⚠️ Account</div>
+        <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:1rem;line-height:1.5">
+          ${leadProfile.is_active===false ? 'This account is currently deactivated and cannot log in.' : 'Deactivating prevents this person from logging in without deleting their data. Deleting removes the application and guarantor records permanently.'}
+        </p>
+        <div style="display:flex;gap:.75rem;margin-bottom:.75rem">
+          <button class="btn btn-outline btn-full" onclick="toggleActive()">${leadProfile.is_active===false ? '✓ Reactivate Account' : 'Deactivate Account'}</button>
+        </div>
+        <button class="btn btn-danger btn-full" onclick="deleteLead()">🗑 Delete Lead Application</button>
+      </div>
     `;
   }
 
@@ -393,6 +481,75 @@
     const notes = document.getElementById('leadNotes').value.trim();
     const { error } = await db.from('leads').update({ notes: notes||null }).eq('id', lead.id);
     if (error) { toast('Failed to save notes','error'); } else { toast('Notes saved','success'); }
+  };
+
+  window.updateStatus = async () => {
+    const newStatus = document.getElementById('statusSelect').value;
+    if (newStatus === lead.status) { toast('No change to save','default'); return; }
+    if (!confirm(`Set status to "${newStatus.replace(/_/g,' ')}"? This overrides the guided pipeline.`)) return;
+    const { error } = await db.from('leads').update({ status:newStatus }).eq('id', lead.id);
+    if (error) { toast('Failed to update status','error'); return; }
+    toast('Status updated','success');
+    await reload();
+  };
+
+  window.copyCred = async (text, btn) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      const old = btn.textContent;
+      btn.textContent = '✅';
+      setTimeout(() => { btn.textContent = old; }, 1500);
+    } catch { alert(text); }
+  };
+
+  window.copyBothCreds = async () => {
+    const text = `xchodedos login\nEmail: ${leadProfile.email}\nPassword: ${leadProfile.temp_login_password}`;
+    try { await navigator.clipboard.writeText(text); toast('Credentials copied','success'); }
+    catch { alert(text); }
+  };
+
+  window.toggleEditDetails = () => { editDetailsOpen = !editDetailsOpen; renderContent(); };
+
+  window.saveDetails = async () => {
+    const errEl = document.getElementById('editErr');
+    errEl.classList.remove('show');
+    const updates = {
+      full_name: document.getElementById('editFullName').value.trim(),
+      phone: document.getElementById('editPhone').value.trim() || null,
+      id_number: document.getElementById('editIdNumber').value.trim() || null,
+      address: document.getElementById('editAddress').value.trim() || null,
+      emergency_contact: document.getElementById('editEmergencyName').value.trim() || null,
+      emergency_phone: document.getElementById('editEmergencyPhone').value.trim() || null,
+    };
+    if (!updates.full_name) { errEl.textContent='Full name is required.'; errEl.classList.add('show'); return; }
+    const { error } = await db.from('profiles').update(updates).eq('id', leadProfile.id);
+    if (error) { errEl.textContent = error.message; errEl.classList.add('show'); return; }
+    toast('Details updated','success');
+    editDetailsOpen = false;
+    const { data: lp } = await db.from('profiles').select('*').eq('id', leadProfile.id).single();
+    leadProfile = lp;
+    renderContent();
+  };
+
+  window.toggleActive = async () => {
+    const goingActive = leadProfile.is_active === false;
+    if (!confirm(goingActive ? 'Reactivate this account so they can log in again?' : 'Deactivate this account? They will no longer be able to log in.')) return;
+    const { error } = await db.from('profiles').update({ is_active: goingActive }).eq('id', leadProfile.id);
+    if (error) { toast('Failed to update account status','error'); return; }
+    toast(goingActive ? 'Account reactivated' : 'Account deactivated', 'success');
+    const { data: lp } = await db.from('profiles').select('*').eq('id', leadProfile.id).single();
+    leadProfile = lp;
+    renderContent();
+  };
+
+  window.deleteLead = async () => {
+    if (!confirm('Delete this lead application? This permanently removes the application and guarantor records, and deactivates their login. This cannot be undone.')) return;
+    const { error: leadDelErr } = await db.from('leads').delete().eq('id', lead.id);
+    if (leadDelErr) { toast('Failed to delete lead: ' + leadDelErr.message, 'error'); return; }
+    // Deactivate the underlying account too (we can't remove the auth login itself from here)
+    await db.from('profiles').update({ is_active:false }).eq('id', leadProfile.id);
+    toast('Lead application deleted','success');
+    setTimeout(() => { window.location.href = '/pages/officer/leads.html'; }, 800);
   };
 
   async function reload() {
