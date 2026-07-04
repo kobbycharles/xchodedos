@@ -159,23 +159,28 @@
     <div class="card">
       <div class="section-title" style="margin-bottom:1rem">Hire Agreement Details</div>
       <div class="form-group">
+        <label class="form-label">Total Contract Amount (GHS) *</label>
+        <input class="form-input" id="totalContractAmount" type="number" inputmode="decimal" placeholder="e.g. 45000.00" min="0" step="0.01"/>
+      </div>
+      <div class="form-group">
         <label class="form-label">Weekly Payment (GHS) *</label>
         <input class="form-input" id="weeklyPayment" type="number" inputmode="decimal" placeholder="e.g. 500.00" min="0" step="0.01"/>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Hire Start Date *</label>
-          <input class="form-input" id="hireStart" type="date"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label">End Date (opt.)</label>
-          <input class="form-input" id="hireEnd" type="date"/>
-        </div>
+      <div class="form-group">
+        <label class="form-label">Hire Start Date *</label>
+        <input class="form-input" id="hireStart" type="date"/>
       </div>
       <div class="form-group">
         <label class="form-label">Notes</label>
         <input class="form-input" id="hireNotes" type="text" placeholder="Any conditions or notes…"/>
       </div>
+    </div>
+    <div class="card" id="contractPreview" style="display:none;margin-top:1rem">
+      <div class="section-title" style="margin-bottom:.75rem">Contract Preview</div>
+      <div class="summary-row"><span class="summary-key">Deposit Applied</span><span class="summary-val" id="pvDeposit">GHS 0.00</span></div>
+      <div class="summary-row"><span class="summary-key">Remaining Balance</span><span class="summary-val" id="pvRemaining">GHS 0.00</span></div>
+      <div class="summary-row"><span class="summary-key">Weeks to Complete</span><span class="summary-val" id="pvWeeks">0</span></div>
+      <div class="summary-row"><span class="summary-key">Estimated Contract End</span><span class="summary-val" id="pvEndDate">—</span></div>
     </div>
     <div class="error-box" id="err3"></div>
     <div style="display:flex;gap:.75rem;margin-top:1rem">
@@ -233,6 +238,7 @@
   let officerProfile = null;
   let allDrivers = [], allCars = [];
   let selectedDriver = null, selectedCar = null;
+  let driverDeposits = {}; // profile_id -> { security_deposit, deposit_paid }
 
   function toast(msg, type='default') {
     const c=document.getElementById('toast-container'); const el=document.createElement('div');
@@ -310,22 +316,64 @@
     document.getElementById('step3').style.display='';
     // Default hire start to today
     document.getElementById('hireStart').value = new Date().toISOString().split('T')[0];
+    // Pre-fill total contract amount from car's purchase price if available
+    if (selectedCar?.purchase_price) document.getElementById('totalContractAmount').value = selectedCar.purchase_price;
+    updateContractPreview();
     updateSteps(3);
   };
+
+  function updateContractPreview() {
+    const total  = parseFloat(document.getElementById('totalContractAmount').value) || 0;
+    const weekly = parseFloat(document.getElementById('weeklyPayment').value) || 0;
+    const start  = document.getElementById('hireStart').value;
+    const preview = document.getElementById('contractPreview');
+
+    if (!total || !weekly || !start) { preview.style.display='none'; return; }
+
+    const dep = selectedDriver ? (driverDeposits[selectedDriver.id] || {}) : {};
+    const deposit   = dep.deposit_paid ? (dep.security_deposit || 0) : 0;
+    const remaining = Math.max(total - deposit, 0);
+    const weeks     = weekly > 0 ? Math.ceil(remaining / weekly) : 0;
+    const endDate   = new Date(start);
+    endDate.setDate(endDate.getDate() + weeks * 7);
+
+    document.getElementById('pvDeposit').textContent   = `GHS ${deposit.toFixed(2)}`;
+    document.getElementById('pvRemaining').textContent = `GHS ${remaining.toFixed(2)}`;
+    document.getElementById('pvWeeks').textContent      = weeks;
+    document.getElementById('pvEndDate').textContent    = endDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+    preview.style.display='';
+  }
+
+  ['totalContractAmount','weeklyPayment','hireStart'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateContractPreview);
+  });
   window.goStep4 = () => {
     clearErr('err3');
-    const weekly = parseFloat(document.getElementById('weeklyPayment').value);
-    const start  = document.getElementById('hireStart').value;
+    const total   = parseFloat(document.getElementById('totalContractAmount').value);
+    const weekly  = parseFloat(document.getElementById('weeklyPayment').value);
+    const start   = document.getElementById('hireStart').value;
+    if (!total || total <= 0) { showErr('err3','Please enter the total contract amount.'); return; }
     if (!weekly || weekly <= 0) { showErr('err3','Please enter a weekly payment amount.'); return; }
     if (!start) { showErr('err3','Please select a hire start date.'); return; }
+
+    const dep = selectedDriver ? (driverDeposits[selectedDriver.id] || {}) : {};
+    const deposit   = dep.deposit_paid ? (dep.security_deposit || 0) : 0;
+    const remaining = Math.max(total - deposit, 0);
+    const weeks     = weekly > 0 ? Math.ceil(remaining / weekly) : 0;
+    const endDate   = new Date(start);
+    endDate.setDate(endDate.getDate() + weeks * 7);
+
     document.getElementById('step3').style.display='none';
     document.getElementById('step4').style.display='';
     document.getElementById('summaryBox').innerHTML = `
       <div class="summary-row"><span class="summary-key">Driver</span><span class="summary-val">${selectedDriver.full_name}</span></div>
       <div class="summary-row"><span class="summary-key">Vehicle</span><span class="summary-val">${selectedCar.make} ${selectedCar.model} ${selectedCar.year}</span></div>
       <div class="summary-row"><span class="summary-key">Plate</span><span class="summary-val">${selectedCar.plate_number}</span></div>
+      <div class="summary-row"><span class="summary-key">Total Contract Amount</span><span class="summary-val">GHS ${total.toFixed(2)}</span></div>
+      <div class="summary-row"><span class="summary-key">Deposit Applied</span><span class="summary-val">GHS ${deposit.toFixed(2)}</span></div>
       <div class="summary-row"><span class="summary-key">Weekly Payment</span><span class="summary-val">GHS ${weekly.toFixed(2)}</span></div>
-      <div class="summary-row"><span class="summary-key">Hire Start</span><span class="summary-val">${new Date(start).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div>`;
+      <div class="summary-row"><span class="summary-key">Hire Start</span><span class="summary-val">${new Date(start).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div>
+      <div class="summary-row"><span class="summary-key">Estimated Contract End</span><span class="summary-val">${endDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div>`;
     updateSteps(4);
   };
 
@@ -337,44 +385,77 @@
     btn.disabled=true;
 
     try {
+      const total   = parseFloat(document.getElementById('totalContractAmount').value);
       const weekly  = parseFloat(document.getElementById('weeklyPayment').value);
       const start   = document.getElementById('hireStart').value;
-      const end     = document.getElementById('hireEnd').value || null;
       const notes   = document.getElementById('hireNotes').value.trim() || null;
 
+      const dep = driverDeposits[selectedDriver.id] || {};
+      const deposit   = dep.deposit_paid ? (dep.security_deposit || 0) : 0;
+      const remaining = Math.max(total - deposit, 0);
+      const weeks     = weekly > 0 ? Math.ceil(remaining / weekly) : 0;
+      const endDateObj = new Date(start);
+      endDateObj.setDate(endDateObj.getDate() + weeks * 7);
+      const end = endDateObj.toISOString().split('T')[0];
+
       // 1. Deactivate any existing assignment for this driver
-      await db.from('driver_assignments').update({ is_active:false, unassigned_at:new Date().toISOString() }).eq('driver_id', selectedDriver.id).eq('is_active', true);
+      const { error: deactErr } = await db.from('driver_assignments').update({ is_active:false, unassigned_at:new Date().toISOString() }).eq('driver_id', selectedDriver.id).eq('is_active', true);
+      if (deactErr) throw deactErr;
 
       // 2. Mark previous car as available if different
-      await db.from('cars').update({ status:'available' }).eq('status','assigned').neq('id', selectedCar.id);
+      const { error: prevCarErr } = await db.from('cars').update({ status:'available' }).eq('status','assigned').neq('id', selectedCar.id);
+      if (prevCarErr) throw prevCarErr;
 
       // 3. Create new assignment
-      const { error: aError } = await db.from('driver_assignments').insert({
+      const { data: newAssignment, error: aError } = await db.from('driver_assignments').insert({
         driver_id:      selectedDriver.id,
         car_id:         selectedCar.id,
         assigned_by:    officerProfile.id,
         hire_start_date: start,
         hire_end_date:  end,
         weekly_payment: weekly,
+        total_contract_amount: total,
         notes,
         is_active:      true,
-      });
+      }).select().single();
       if (aError) throw aError;
 
       // 4. Update car status to assigned
-      await db.from('cars').update({ status:'assigned' }).eq('id', selectedCar.id);
+      const { error: carErr } = await db.from('cars').update({ status:'assigned' }).eq('id', selectedCar.id);
+      if (carErr) throw carErr;
 
       // 5. Promote lead → driver if needed + update lead status
-      await db.from('profiles').update({ role:'driver' }).eq('id', selectedDriver.id);
-      await db.from('leads').update({ status:'approved' }).eq('profile_id', selectedDriver.id).neq('status','approved');
+      const { error: roleErr } = await db.from('profiles').update({ role:'driver' }).eq('id', selectedDriver.id);
+      if (roleErr) throw roleErr;
+      const { data: updatedLeads, error: leadErr } = await db.from('leads').update({ status:'approved' }).eq('profile_id', selectedDriver.id).neq('status','approved').select();
+      if (leadErr) throw leadErr;
+
+      // 5b. Record the initial deposit as a paid payment, so it counts toward
+      // the driver's total paid. Only do this on first approval, so
+      // re-assigning an existing driver to a different car doesn't double-count it.
+      const isFirstApproval = updatedLeads && updatedLeads.length > 0;
+      if (isFirstApproval && deposit > 0) {
+        const { error: depositErr } = await db.from('payments').insert({
+          driver_id:      selectedDriver.id,
+          assignment_id:  newAssignment.id,
+          amount:         deposit,
+          week_starting:  start,
+          status:         'paid',
+          paid_at:        new Date().toISOString(),
+          payment_method: 'deposit',
+          notes:          'Initial security deposit',
+        });
+        if (depositErr) throw depositErr;
+      }
 
       // 6. Ensure driver is in officer's assignment list
-      await db.from('officer_driver_assignments').upsert({
+      const { error: odaErr } = await db.from('officer_driver_assignments').upsert({
         officer_id: officerProfile.id,
         driver_id:  selectedDriver.id,
         assigned_by: officerProfile.id,
         is_active:  true,
       }, { onConflict: 'officer_id,driver_id' });
+      if (odaErr) throw odaErr;
 
       document.getElementById('step4').style.display='none';
       document.getElementById('successMsg').textContent = `${selectedDriver.full_name} assigned to ${selectedCar.make} ${selectedCar.model}`;
@@ -393,7 +474,9 @@
     selectedDriver=null; selectedCar=null;
     document.getElementById('successScreen').classList.remove('show');
     document.getElementById('weeklyPayment').value='';
+    document.getElementById('totalContractAmount').value='';
     document.getElementById('hireNotes').value='';
+    document.getElementById('contractPreview').style.display='none';
     goStep1();
     renderDrivers();
   };
@@ -422,6 +505,13 @@
     const assignedIds = (activeAssigned||[]).map(a=>a.driver_id);
     allDrivers = (leads||[]).filter(d => !assignedIds.includes(d.id));
 
+    // Load deposit info for these candidates (used to compute contract end date + initial payment)
+    const candidateIds = (leads||[]).map(d=>d.id);
+    if (candidateIds.length) {
+      const { data: leadRows } = await db.from('leads').select('profile_id, security_deposit, deposit_paid').in('profile_id', candidateIds);
+      (leadRows||[]).forEach(l => { driverDeposits[l.profile_id] = { security_deposit: parseFloat(l.security_deposit||0), deposit_paid: !!l.deposit_paid }; });
+    }
+
     // Pre-select from URL param
     const params = new URLSearchParams(location.search);
     const preDriver = params.get('driver');
@@ -430,6 +520,10 @@
       if (!allDrivers.find(d=>d.id===preDriver)) {
         const { data: pd } = await db.from('profiles').select('id, full_name, phone, email').eq('id', preDriver).single();
         if (pd) allDrivers.unshift(pd);
+        if (!driverDeposits[preDriver]) {
+          const { data: pl } = await db.from('leads').select('profile_id, security_deposit, deposit_paid').eq('profile_id', preDriver).maybeSingle();
+          if (pl) driverDeposits[pl.profile_id] = { security_deposit: parseFloat(pl.security_deposit||0), deposit_paid: !!pl.deposit_paid };
+        }
       }
       selectedDriver = allDrivers.find(d=>d.id===preDriver)||null;
       if (selectedDriver) document.getElementById('step1Next').disabled=false;

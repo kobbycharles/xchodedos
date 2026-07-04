@@ -46,6 +46,20 @@
     .rate-label { font-size:.8rem; color:var(--brand); font-weight:500; }
     .rate-amount { font-family:var(--font-display); font-weight:700; color:var(--brand-dark); font-size:1rem; }
 
+    /* Contract progress */
+    .contract-card { background:#fff; border:1px solid var(--border); border-radius:var(--r-lg); padding:1rem 1.125rem; margin-bottom:1.25rem; box-shadow:var(--shadow-sm); }
+    .contract-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:.65rem; }
+    .contract-title { font-family:var(--font-display); font-weight:700; font-size:.95rem; color:var(--gray-900); }
+    .contract-pct { font-family:var(--font-display); font-weight:700; font-size:.95rem; color:var(--brand); }
+    .progress-track { width:100%; height:10px; border-radius:var(--r-full); background:var(--gray-100); overflow:hidden; margin-bottom:.75rem; }
+    .progress-fill { height:100%; border-radius:var(--r-full); background:linear-gradient(90deg,var(--brand),var(--brand-dark)); transition:width .3s ease; }
+    .contract-stats { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+    .contract-stat { }
+    .contract-stat-val { font-family:var(--font-display); font-weight:700; font-size:.9rem; color:var(--gray-900); }
+    .contract-stat-lbl { font-size:.68rem; color:var(--gray-400); text-transform:uppercase; letter-spacing:.03em; margin-top:.1rem; }
+    .contract-end-banner { margin-top:.75rem; padding-top:.75rem; border-top:1px solid var(--gray-100); display:flex; justify-content:space-between; align-items:center; font-size:.78rem; color:var(--gray-500); }
+    .contract-end-banner strong { color:var(--gray-800); }
+
     /* Month groups */
     .month-group { margin-bottom:1.25rem; }
     .month-header { font-family:var(--font-display); font-size:.82rem; font-weight:700; color:var(--gray-500); text-transform:uppercase; letter-spacing:.07em; margin-bottom:.625rem; padding:.25rem 0; border-bottom:2px solid var(--border); }
@@ -82,6 +96,7 @@
 </header>
 
 <main class="page-content">
+  <div id="contractSection"></div>
   <div id="summarySection"><div class="skeleton" style="height:80px;border-radius:12px;margin-bottom:1rem"></div></div>
   <div id="paymentList"><div class="skeleton" style="height:200px;border-radius:12px"></div></div>
 </main>
@@ -113,7 +128,7 @@
 
     const [paymentsRes, assignmentRes] = await Promise.all([
       db.from('payments').select('*').eq('driver_id', profile.id).order('week_starting', { ascending:false }),
-      db.from('driver_assignments').select('weekly_payment, hire_start_date').eq('driver_id', profile.id).eq('is_active', true).single(),
+      db.from('driver_assignments').select('weekly_payment, hire_start_date, hire_end_date, total_contract_amount').eq('driver_id', profile.id).eq('is_active', true).single(),
     ]);
 
     const payments   = paymentsRes.data || [];
@@ -121,6 +136,32 @@
 
     const totalPaid    = payments.filter(p=>p.status==='paid').reduce((s,p)=>s+parseFloat(p.amount||0),0);
     const totalPending = payments.filter(p=>p.status!=='paid').reduce((s,p)=>s+parseFloat(p.amount||0),0);
+
+    // Contract progress card
+    if (assignment && parseFloat(assignment.total_contract_amount||0) > 0) {
+      const total     = parseFloat(assignment.total_contract_amount);
+      const remaining = Math.max(total - totalPaid, 0);
+      const pct       = Math.min(100, Math.round((totalPaid / total) * 100));
+      const complete  = pct >= 100;
+      document.getElementById('contractSection').innerHTML = `
+        <div class="contract-card">
+          <div class="contract-head">
+            <span class="contract-title">Contract Progress</span>
+            <span class="contract-pct">${pct}%</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <div class="contract-stats">
+            <div class="contract-stat"><div class="contract-stat-val">GHS ${total.toFixed(2)}</div><div class="contract-stat-lbl">Total Contract</div></div>
+            <div class="contract-stat"><div class="contract-stat-val">GHS ${remaining.toFixed(2)}</div><div class="contract-stat-lbl">Remaining Balance</div></div>
+          </div>
+          <div class="contract-end-banner">
+            <span>${complete ? 'Contract completed 🎉' : 'Estimated completion'}</span>
+            ${assignment.hire_end_date ? `<strong>${new Date(assignment.hire_end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</strong>` : ''}
+          </div>
+        </div>`;
+    } else {
+      document.getElementById('contractSection').innerHTML = '';
+    }
 
     // Summary
     document.getElementById('summarySection').innerHTML = `

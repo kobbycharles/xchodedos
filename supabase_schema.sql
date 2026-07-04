@@ -114,6 +114,7 @@ create table driver_assignments (
   hire_start_date date not null,
   hire_end_date date,
   weekly_payment numeric(10,2) not null,
+  total_contract_amount numeric(10,2) not null default 0,
   notes text
 );
 
@@ -291,6 +292,12 @@ create policy "Super admin can update all profiles"
 
 create policy "Officers can update their own profile"
   on profiles for update using (auth.uid() = id);
+
+create policy "Officers and admins can update lead and driver profiles"
+  on profiles for update using (
+    (current_role_is('relationship_officer') or current_role_is('super_admin'))
+    and role in ('lead','driver')
+  );
 
 create policy "Super admin can insert profiles"
   on profiles for insert with check (current_role_is('super_admin'));
