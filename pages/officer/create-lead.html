@@ -302,6 +302,13 @@
       const loginPassword = document.getElementById('loginPassword').value;
       const signUpOptions = { data: { full_name: fullNameVal, role: 'lead' } };
 
+      // IMPORTANT: signUp() will switch the current browser session to the new
+      // lead's account. We capture the officer's session first, create the
+      // new account, then immediately restore the officer's session — otherwise
+      // every insert below (leads, guarantors) runs as the newly-created lead
+      // instead of the officer, and fails RLS.
+      const { data: { session: officerSession } } = await db.auth.getSession();
+
       let authData, authErr, email;
       if (enteredEmail) {
         email = enteredEmail;
@@ -310,6 +317,13 @@
         ({ data: authData, error: authErr, email } = await signUpWithGeneratedEmail(fullNameVal, loginPassword, signUpOptions));
       }
       if (authErr) throw authErr;
+
+      if (officerSession) {
+        await db.auth.setSession({
+          access_token: officerSession.access_token,
+          refresh_token: officerSession.refresh_token,
+        });
+      }
 
       const userId = authData.user?.id;
       if (!userId) throw new Error('User creation failed.');
