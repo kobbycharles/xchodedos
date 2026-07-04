@@ -125,6 +125,9 @@
 
 <main class="page-content">
 
+  <!-- Payment health warning -->
+  <div id="paymentHealthBanner"></div>
+
   <!-- Hero -->
   <div class="hero-card" id="heroCard">
     <div class="hero-top">
@@ -209,6 +212,35 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // Weeks run in 7-day cycles anchored to hire_start_date. A week only
+  // counts as "due" once it has fully elapsed. A week is "missed" if the
+  // total paid against that week_starting date is less than what's owed.
+  function computeMissedWeeks(hireStart, weeklyPayment, payments) {
+    const start = new Date(hireStart); start.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const msPerWeek = 7*24*60*60*1000;
+
+    const dueWeeks = [];
+    for (let cursor = new Date(start); cursor.getTime() + msPerWeek <= today.getTime(); cursor = new Date(cursor.getTime()+msPerWeek)) {
+      dueWeeks.push(cursor.toISOString().split('T')[0]);
+    }
+
+    const paidByWeek = new Map();
+    (payments||[]).forEach(p => {
+      if (p.status !== 'paid' || p.payment_method === 'deposit' || !p.week_starting) return;
+      paidByWeek.set(p.week_starting, (paidByWeek.get(p.week_starting)||0) + parseFloat(p.amount||0));
+    });
+
+    let missedStreak = 0;
+    const missedWeeks = [];
+    for (let i = dueWeeks.length - 1; i >= 0; i--) {
+      const paid = paidByWeek.get(dueWeeks[i]) || 0;
+      if (paid + 0.01 < weeklyPayment) { missedStreak++; missedWeeks.unshift(dueWeeks[i]); }
+      else break;
+    }
+    return { missedStreak, missedWeeks };
+  }
+
   async function init() {
     const { data:{ session } } = await db.auth.getSession();
     if (!session) { window.location.href='/index.html'; return; }
@@ -236,6 +268,25 @@
     const assignment = assignmentRes.data;
     const payments   = paymentsRes.data || [];
     const todayCheck = todayCheckRes.data?.[0];
+
+    // Payment health warning — shown to the driver themselves
+    const bannerEl = document.getElementById('paymentHealthBanner');
+    if (assignment?.hire_start_date && assignment.weekly_payment > 0) {
+      const { missedStreak, missedWeeks } = computeMissedWeeks(
+        assignment.hire_start_date, parseFloat(assignment.weekly_payment), payments
+      );
+      if (missedStreak >= 2) {
+        const fmt = d => new Date(d).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+        bannerEl.innerHTML = `
+          <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:.875rem 1rem;margin-bottom:1rem;display:flex;gap:.75rem;align-items:flex-start">
+            <span style="font-size:1.2rem;line-height:1">⚠️</span>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:.85rem;color:#991b1b;margin-bottom:.2rem">Payment overdue — ${missedStreak} weeks missed</div>
+              <div style="font-size:.78rem;color:#7f1d1d">No payment recorded since the week of ${fmt(missedWeeks[0])}. Please make a payment or contact your officer as soon as possible.</div>
+            </div>
+          </div>`;
+      }
+    }
 
     // Hero stats
     const totalPaid = payments.reduce((s,p) => s + parseFloat(p.amount||0), 0);
