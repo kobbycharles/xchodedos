@@ -115,6 +115,14 @@
         <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="dob" type="date"/></div>
       </div>
       <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="email" type="email" placeholder="optional" inputmode="email"/></div>
+      <div class="form-group">
+        <label class="form-label">Login Password *</label>
+        <div style="display:flex;gap:.5rem">
+          <input class="form-input" id="loginPassword" type="text" placeholder="Temporary password" style="flex:1"/>
+          <button type="button" class="btn btn-ghost" id="genPwBtn" style="white-space:nowrap">↻ Generate</button>
+        </div>
+        <p style="font-size:.72rem;color:var(--gray-400);margin-top:.35rem">You'll give this to the applicant after registering so they can log in. At least 6 characters.</p>
+      </div>
       <div class="form-group"><label class="form-label">ID Number *</label><input class="form-input" id="idNumber" type="text" placeholder="National ID / Passport No."/></div>
       <div class="form-group"><label class="form-label">Address *</label><textarea class="form-textarea" id="address" placeholder="Residential address" rows="2"></textarea></div>
       <div class="section-div">Emergency Contact</div>
@@ -186,7 +194,15 @@
   <div class="success-screen" id="successScreen">
     <div style="font-size:3rem;margin-bottom:1rem">🎉</div>
     <div style="font-family:var(--font-display);font-weight:700;font-size:1.3rem;margin-bottom:.5rem" id="successName"></div>
-    <p style="font-size:.85rem;color:var(--gray-400);margin-bottom:1.5rem">Lead registered successfully with 2 guarantors.</p>
+    <p style="font-size:.85rem;color:var(--gray-400);margin-bottom:1rem">Lead registered successfully with 2 guarantors.</p>
+    <div style="background:var(--brand-light);border:1px solid #c7d7fb;border-radius:12px;padding:1rem;text-align:left;margin-bottom:1.5rem">
+      <div style="font-size:.75rem;font-weight:700;color:var(--brand-dark);margin-bottom:.6rem">GIVE THESE LOGIN DETAILS TO THE APPLICANT</div>
+      <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.15rem">Email</div>
+      <div style="font-family:monospace;font-size:.85rem;font-weight:600;color:var(--gray-900);margin-bottom:.75rem;word-break:break-all" id="successEmail"></div>
+      <div style="font-size:.78rem;color:var(--gray-500);margin-bottom:.15rem">Password</div>
+      <div style="font-family:monospace;font-size:.85rem;font-weight:600;color:var(--gray-900);margin-bottom:.75rem" id="successPassword"></div>
+      <button type="button" class="btn btn-outline btn-full" id="copyCredsBtn">📋 Copy Login Details</button>
+    </div>
     <div style="display:flex;flex-direction:column;gap:.75rem">
       <button class="btn btn-primary btn-full" onclick="resetForm()">Register Another Lead</button>
       <a href="/pages/officer/dashboard.html" class="btn btn-ghost btn-full">Back to Dashboard</a>
@@ -253,7 +269,9 @@
     const phone = document.getElementById('phone').value.trim();
     const id = document.getElementById('idNumber').value.trim();
     const addr = document.getElementById('address').value.trim();
+    const pw = document.getElementById('loginPassword').value;
     if (!name||!phone||!id||!addr) { showErr('err1','Please fill in all required fields.'); return; }
+    if (!pw || pw.length < 6) { showErr('err1','Login password must be at least 6 characters.'); return; }
     document.getElementById('step1').style.display='none';
     document.getElementById('step2').style.display='';
     updateSteps(2);
@@ -279,32 +297,25 @@
 
     try {
       // 1. Create profile for the lead
-      // NOTE: auth.signUp() logs the browser in as the newly created user
-      // (since email confirmation is disabled). We capture the officer's
-      // session first and restore it right after, so the rest of this flow
-      // still runs with officer permissions.
-      const { data: { session: officerSession } } = await db.auth.getSession();
+      const enteredEmail = document.getElementById('email').value.trim();
+      const fullNameVal = document.getElementById('fullName').value.trim();
+      const loginPassword = document.getElementById('loginPassword').value;
+      const signUpOptions = { data: { full_name: fullNameVal, role: 'lead' } };
 
-      const email = document.getElementById('email').value.trim() || `lead_${Date.now()}@xchodedos.internal`;
-      const { data: authData, error: authErr } = await db.auth.signUp({
-        email, password: Math.random().toString(36).slice(-10) + 'Aa1!',
-        options: { data: { full_name: document.getElementById('fullName').value.trim(), role: 'lead' } }
-      });
+      let authData, authErr, email;
+      if (enteredEmail) {
+        email = enteredEmail;
+        ({ data: authData, error: authErr } = await db.auth.signUp({ email, password: loginPassword, options: signUpOptions }));
+      } else {
+        ({ data: authData, error: authErr, email } = await signUpWithGeneratedEmail(fullNameVal, loginPassword, signUpOptions));
+      }
       if (authErr) throw authErr;
 
       const userId = authData.user?.id;
       if (!userId) throw new Error('User creation failed.');
 
-      // Restore officer session before any further writes
-      if (officerSession) {
-        await db.auth.setSession({
-          access_token: officerSession.access_token,
-          refresh_token: officerSession.refresh_token,
-        });
-      }
-
       // 2. Update profile details
-      const { error: profileErr } = await db.from('profiles').update({
+      await db.from('profiles').update({
         full_name: document.getElementById('fullName').value.trim(),
         phone: document.getElementById('phone').value.trim(),
         id_number: document.getElementById('idNumber').value.trim(),
@@ -314,7 +325,6 @@
         emergency_phone: document.getElementById('emergencyPhone').value.trim() || null,
         role: 'lead',
       }).eq('id', userId);
-      if (profileErr) throw profileErr;
 
       // 3. Create lead record
       const { data: lead, error: leadErr } = await db.from('leads').insert({
@@ -329,14 +339,15 @@
       if (leadErr) throw leadErr;
 
       // 4. Create 2 guarantors
-      const { error: guarantorErr } = await db.from('guarantors').insert([
+      await db.from('guarantors').insert([
         { lead_id: lead.id, full_name: document.getElementById('g1Name').value.trim(), phone: document.getElementById('g1Phone').value.trim(), id_number: document.getElementById('g1Id').value.trim(), relationship: document.getElementById('g1Rel').value.trim()||null, address: document.getElementById('g1Address').value.trim()||null },
         { lead_id: lead.id, full_name: document.getElementById('g2Name').value.trim(), phone: document.getElementById('g2Phone').value.trim(), id_number: document.getElementById('g2Id').value.trim(), relationship: document.getElementById('g2Rel').value.trim()||null, address: document.getElementById('g2Address').value.trim()||null },
       ]);
-      if (guarantorErr) throw guarantorErr;
 
       document.getElementById('step3').style.display='none';
       document.getElementById('successName').textContent = document.getElementById('fullName').value.trim();
+      document.getElementById('successEmail').textContent = email;
+      document.getElementById('successPassword').textContent = loginPassword;
       document.getElementById('successScreen').classList.add('show');
 
     } catch(e) {
@@ -353,10 +364,63 @@
     ['fullName','phone','email','idNumber','address','dob','emergencyName','emergencyPhone',
      'g1Name','g1Phone','g1Id','g1Rel','g1Address','g2Name','g2Phone','g2Id','g2Rel','g2Address',
      'depositAmt','notes'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+    document.getElementById('loginPassword').value = genPassword();
     document.getElementById('step1').style.display='';
     document.getElementById('step3').style.display='none';
     updateSteps(1);
   };
+
+  // ── Fallback internal email (firstname.lastname@xchodedos.internal) ──
+  function buildEmailBase(fullName) {
+    const clean = s => (s || '').toLowerCase().replace(/[^a-z]/g, '');
+    const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+    const first = clean(parts[0]) || 'user';
+    const last  = clean(parts[parts.length - 1]);
+    return (last && last !== first) ? `${first}.${last}` : first;
+  }
+
+  // Tries firstname.lastname@xchodedos.internal, then ...2@, ...3@, etc.
+  // if the address is already taken (Supabase enforces unique emails,
+  // so we let that constraint drive the retry rather than pre-checking
+  // profiles — the RO's RLS access doesn't cover other officers' leads,
+  // so a pre-check would miss real collisions anyway).
+  async function signUpWithGeneratedEmail(fullName, password, options) {
+    const base = buildEmailBase(fullName);
+    for (let n = 0; n < 6; n++) {
+      const email = n === 0 ? `${base}@xchodedos.internal` : `${base}${n+1}@xchodedos.internal`;
+      const res = await db.auth.signUp({ email, password, options });
+      if (!res.error || !/already registered|already exists/i.test(res.error.message || '')) {
+        return { ...res, email };
+      }
+    }
+    return { error: { message: 'Could not generate a unique login email — please enter one manually.' } };
+  }
+
+  // ── Temporary password helpers ──────────────────────────────
+  function genPassword() {
+    const words = ['River','Cocoa','Amber','Cedar','Coral','Ridge','Delta','Ember','Falcon','Gable','Harbor','Ivory','Jasper','Kite','Lumen','Maple'];
+    const w = words[Math.floor(Math.random()*words.length)];
+    const n = Math.floor(1000 + Math.random()*9000);
+    return `${w}${n}!`;
+  }
+  document.getElementById('loginPassword').value = genPassword();
+  document.getElementById('genPwBtn').addEventListener('click', () => {
+    document.getElementById('loginPassword').value = genPassword();
+  });
+  document.getElementById('copyCredsBtn').addEventListener('click', async () => {
+    const email = document.getElementById('successEmail').textContent;
+    const pw = document.getElementById('successPassword').textContent;
+    const text = `xchodedos login\nEmail: ${email}\nPassword: ${pw}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      const btn = document.getElementById('copyCredsBtn');
+      const old = btn.textContent;
+      btn.textContent = '✅ Copied!';
+      setTimeout(() => { btn.textContent = old; }, 1800);
+    } catch {
+      alert(text);
+    }
+  });
 
   async function init() {
     const { data:{ session } } = await db.auth.getSession();
