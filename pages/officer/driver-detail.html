@@ -76,6 +76,17 @@
     .skeleton { background:linear-gradient(90deg,var(--gray-100) 25%,var(--gray-200) 50%,var(--gray-100) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px; }
     @keyframes shimmer { to { background-position:-200% 0; } }
 
+    .progress-row { margin-bottom:1.1rem; }
+    .progress-row:last-child { margin-bottom:0; }
+    .progress-label { display:flex; justify-content:space-between; font-size:.8rem; margin-bottom:.4rem; }
+    .progress-label span:first-child { color:var(--gray-500); font-weight:500; }
+    .progress-label span:last-child { color:var(--gray-800); font-weight:700; }
+    .progress-track { height:8px; border-radius:var(--r-full); background:var(--gray-100); overflow:hidden; }
+    .progress-fill { height:100%; border-radius:var(--r-full); background:var(--brand); transition:width .3s; }
+    .progress-fill.warn { background:var(--warning); }
+    .progress-fill.danger { background:var(--danger); }
+    .progress-dates { display:flex; justify-content:space-between; font-size:.72rem; color:var(--gray-400); margin-top:.35rem; }
+
     .bottom-nav { position:fixed; bottom:0; left:0; right:0; height:var(--nav-h); background:#fff; border-top:1px solid var(--border); display:flex; z-index:50; box-shadow:0 -4px 16px rgba(0,0,0,.06); }
     .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; border:none; background:none; color:var(--gray-400); font-size:.65rem; font-weight:500; padding:.5rem 0; text-decoration:none; transition:color .15s; }
     .nav-item svg { width:22px; height:22px; }
@@ -110,6 +121,12 @@
 
   <!-- Car -->
   <div id="carSection"></div>
+
+  <!-- Contract progress -->
+  <div class="detail-card" id="progressCard" style="display:none">
+    <div class="detail-card-title">Contract Progress</div>
+    <div id="progressBody"></div>
+  </div>
 
   <!-- Personal details -->
   <div class="detail-card" id="personalCard">
@@ -184,6 +201,8 @@
     const carSection = document.getElementById('carSection');
     if (assignment?.cars) {
       const c = assignment.cars;
+      const startStr = assignment.hire_start_date ? new Date(assignment.hire_start_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+      const endStr   = assignment.hire_end_date   ? new Date(assignment.hire_end_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})   : 'Open-ended';
       carSection.innerHTML = `
         <div class="car-assigned" style="margin-bottom:1rem">
           <div class="car-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l3-4h8l3 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
@@ -192,12 +211,65 @@
             <div class="car-sub">${c.plate_number}${c.color?' · '+c.color:''} · GHS ${assignment.weekly_payment}/wk</div>
           </div>
           <span class="badge badge-green">Assigned</span>
+        </div>
+        <div class="detail-card" style="margin-bottom:1rem">
+          <div class="detail-card-title">Contract</div>
+          <div class="detail-row"><span class="detail-key">Start Date</span><span class="detail-val">${startStr}</span></div>
+          <div class="detail-row"><span class="detail-key">End Date</span><span class="detail-val">${endStr}</span></div>
+          <div class="detail-row"><span class="detail-key">Weekly Payment</span><span class="detail-val">GHS ${assignment.weekly_payment}</span></div>
         </div>`;
     } else {
       carSection.innerHTML = `<div style="background:var(--warning-bg);border-radius:12px;padding:.875rem 1rem;margin-bottom:1rem;font-size:.85rem;color:#92400e;border:1px solid #fde68a;display:flex;align-items:center;justify-content:space-between;gap:.75rem">
         <span>⚠️ No vehicle assigned yet.</span>
         <a href="/pages/officer/assign-vehicle.html?driver=${driverId}" style="background:var(--brand);color:#fff;padding:.4rem .75rem;border-radius:8px;font-size:.75rem;font-weight:600;white-space:nowrap;text-decoration:none">Assign Car →</a>
       </div>`;
+    }
+
+    // Payments (fetched once — used for both the progress card and history list)
+    const { data: allPayments } = await db.from('payments').select('*').eq('driver_id', driverId).order('created_at', { ascending:false });
+    const payments = allPayments || [];
+    const totalPaid = payments.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+
+    // Contract progress card
+    const progressCard = document.getElementById('progressCard');
+    const progressBody = document.getElementById('progressBody');
+    if (assignment?.hire_start_date) {
+      const start = new Date(assignment.hire_start_date);
+      const end   = assignment.hire_end_date ? new Date(assignment.hire_end_date) : null;
+      const now   = new Date();
+      const msPerWeek = 7*24*60*60*1000;
+
+      let timeBar = '';
+      if (end) {
+        const totalWeeks   = Math.max(1, Math.round((end-start)/msPerWeek));
+        const elapsedWeeks = Math.min(totalWeeks, Math.max(0, Math.round((now-start)/msPerWeek)));
+        const pct = Math.min(100, Math.round((elapsedWeeks/totalWeeks)*100));
+        const cls = pct >= 100 ? 'danger' : pct >= 80 ? 'warn' : '';
+        timeBar = `
+          <div class="progress-row">
+            <div class="progress-label"><span>Contract Term</span><span>${elapsedWeeks} / ${totalWeeks} wks</span></div>
+            <div class="progress-track"><div class="progress-fill ${cls}" style="width:${pct}%"></div></div>
+            <div class="progress-dates"><span>${start.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span><span>${end.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</span></div>
+          </div>`;
+      }
+
+      let payBar = '';
+      const weekly = parseFloat(assignment.weekly_payment||0);
+      if (end && weekly) {
+        const totalWeeks = Math.max(1, Math.round((end-start)/msPerWeek));
+        const totalContractValue = totalWeeks * weekly;
+        const pct = Math.min(100, Math.round((totalPaid/totalContractValue)*100));
+        payBar = `
+          <div class="progress-row">
+            <div class="progress-label"><span>Amount Paid</span><span>GHS ${totalPaid.toFixed(0)} / ${totalContractValue.toFixed(0)}</span></div>
+            <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+          </div>`;
+      }
+
+      if (timeBar || payBar) {
+        progressBody.innerHTML = timeBar + payBar;
+        progressCard.style.display = '';
+      }
     }
 
     // Personal details
@@ -209,19 +281,18 @@
       <div class="detail-row"><span class="detail-key">Address</span><span class="detail-val">${driver.address||'—'}</span></div>
       <div class="detail-row"><span class="detail-key">Emergency</span><span class="detail-val">${driver.emergency_contact||'—'}${driver.emergency_phone?' · '+driver.emergency_phone:''}</span></div>`;
 
-    // Payment history
-    const { data: payments } = await db.from('payments').select('*').eq('driver_id', driverId).order('created_at', { ascending:false }).limit(10);
+    // Payment history (most recent 10 of the full set already loaded above)
     const payList = document.getElementById('paymentList');
-    if (!payments || !payments.length) {
+    if (!payments.length) {
       payList.innerHTML = `<div class="empty-state">No payments recorded yet.</div>`;
     } else {
-      const total = payments.reduce((s,p) => s + parseFloat(p.amount), 0);
+      const recent = payments.slice(0,10);
       payList.innerHTML = `
         <div style="background:var(--success-bg);border-radius:8px;padding:.75rem;margin-bottom:.875rem;display:flex;justify-content:space-between;align-items:center">
           <span style="font-size:.78rem;font-weight:600;color:#065f46">Total Paid</span>
-          <span style="font-family:var(--font-display);font-weight:700;color:#065f46">GHS ${total.toFixed(2)}</span>
+          <span style="font-family:var(--font-display);font-weight:700;color:#065f46">GHS ${totalPaid.toFixed(2)}</span>
         </div>
-        ${payments.map(p => `<div class="payment-row">
+        ${recent.map(p => `<div class="payment-row">
           <div>
             <div class="payment-amount">GHS ${parseFloat(p.amount).toFixed(2)}</div>
             <div class="payment-meta">Week of ${p.week_starting} · ${p.payment_method||'cash'}</div>

@@ -143,11 +143,13 @@
 
     if (!driverIds.length) { document.getElementById('driverList').innerHTML = `<div class="empty-state"><p>No drivers assigned to you yet.</p></div>`; return; }
 
-    const { data: drivers } = await db.from('profiles')
-      .select('id, full_name, email, phone, driver_assignments(weekly_payment, cars(make, model, year, plate_number))')
+    const { data: drivers, error: driversErr } = await db.from('profiles')
+      .select('id, full_name, email, phone, driver_assignments!driver_id(weekly_payment, cars(make, model, year, plate_number))')
       .in('id', driverIds)
       .eq('driver_assignments.is_active', true)
       .order('full_name');
+
+    if (driversErr) console.error('load drivers error:', driversErr);
 
     allDrivers = drivers || [];
     render();
