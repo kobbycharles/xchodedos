@@ -155,6 +155,7 @@
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/maintenance.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
@@ -178,7 +179,9 @@
     if (!filtered.length) { list.innerHTML=`<div class="empty-state"><p>No ${currentFilter==='all'?'':currentFilter} cars found.</p></div>`; return; }
     list.innerHTML = filtered.map(c => {
       const driver = c.driver_assignments?.[0]?.profiles;
-      return `<div class="car-card">
+      const m = c._maintenance || {};
+      const alerts = Object.values(m).filter(s => s.status==='due_soon' || s.status==='overdue');
+      return `<div class="car-card" onclick="window.location.href='/pages/officer/car-detail.html?id=${c.id}'" style="cursor:pointer">
         <div class="car-header">
           <div class="car-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l3-4h8l3 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg></div>
           <div style="flex:1"><div class="car-name">${c.make} ${c.model} ${c.year}</div><div class="car-plate">${c.plate_number}${c.color?' · '+c.color:''}</div></div>
@@ -190,6 +193,9 @@
           <div class="car-detail"><div class="car-detail-label">Year</div><div class="car-detail-val">${c.year}</div></div>
         </div>
         ${driver ? `<div class="car-driver">🧑‍✈️ Assigned to ${driver.full_name}</div>` : ''}
+        ${alerts.length ? `<div style="margin-top:.6rem;display:flex;flex-wrap:wrap;gap:.35rem">
+          ${alerts.map(a => `<span class="badge ${a.status==='overdue'?'badge-red':'badge-amber'}" style="font-size:.68rem">🔧 ${a.label} ${a.status==='overdue'?'overdue':'due soon'}</span>`).join('')}
+        </div>` : ''}
       </div>`;
     }).join('');
   }
@@ -239,6 +245,13 @@
     const { data, error } = await db.from('cars').select('*, driver_assignments(profiles!driver_assignments_driver_id_fkey(full_name))').eq('driver_assignments.is_active', true).neq('status','retired').order('created_at', { ascending:false });
     if (error) { console.error(error); toast('Failed to load fleet.', 'error'); allCars = []; render(); return; }
     allCars = data || [];
+
+    if (allCars.length) {
+      const { data: logs } = await db.from('car_maintenance_log').select('*').in('car_id', allCars.map(c=>c.id));
+      const logsByCar = {};
+      (logs||[]).forEach(l => { (logsByCar[l.car_id] ||= []).push(l); });
+      allCars.forEach(c => { c._maintenance = getCarMaintenanceSummary(logsByCar[c.id]||[]); });
+    }
     render();
   }
 

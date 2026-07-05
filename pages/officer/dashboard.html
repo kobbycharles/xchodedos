@@ -109,6 +109,8 @@
     <div class="greeting-role">Relationship Officer</div>
   </div>
 
+  <div id="pushBanner"></div>
+
   <div class="stat-grid">
     <div class="stat-card brand"><div class="stat-value" id="statDrivers">—</div><div class="stat-label">My Drivers</div></div>
     <a href="/pages/officer/leads.html" class="stat-card amber" style="text-decoration:none;display:block"><div class="stat-value" id="statLeads">—</div><div class="stat-label">Active Leads</div></a>
@@ -141,6 +143,9 @@
 
   <div class="section-head"><span class="section-title">Pending Pre-Use Checks</span><a href="/pages/officer/checks.html" style="font-size:.8rem;color:var(--brand)">View all</a></div>
   <div id="checkList"><div class="skeleton" style="height:64px;border-radius:12px;margin-bottom:.625rem"></div></div>
+
+  <div class="section-head"><span class="section-title">Vehicle Maintenance</span><a href="/pages/officer/fleet.html" style="font-size:.8rem;color:var(--brand)">View fleet</a></div>
+  <div id="maintList"></div>
 </main>
 
 <nav class="bottom-nav">
@@ -168,6 +173,8 @@
 
 <div id="toast-container"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/maintenance.js"></script>
+<script src="/js/push.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
@@ -188,6 +195,8 @@
     const av = document.getElementById('avatarBtn');
     av.textContent = ini;
     av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } });
+
+    initPushPrompt(profile.id, 'pushBanner');
 
     // Get my driver IDs
     const { data: assignments } = await db.from('officer_driver_assignments').select('driver_id').eq('officer_id', profile.id).eq('is_active', true);
@@ -237,6 +246,39 @@
             <div class="pending-dot amber"></div>
             <div style="flex:1"><div style="font-weight:600;font-size:.88rem">${c.profiles?.full_name || 'Driver'}</div><div style="font-size:.75rem;color:var(--gray-400)">Check for ${c.check_date}</div></div>
             <a href="/pages/officer/checks.html" class="badge badge-amber">Review</a>
+          </div>`).join('');
+      }
+    }
+
+    // Vehicle maintenance alerts — across this officer's active drivers' cars
+    const maintList = document.getElementById('maintList');
+    if (!driverIds.length) {
+      maintList.innerHTML = `<div class="empty-state"><p>No vehicles to check yet.</p></div>`;
+    } else {
+      const { data: assigns } = await db.from('driver_assignments').select('car_id, driver_id, cars(make, model, plate_number)').in('driver_id', driverIds).eq('is_active', true);
+      const carIds = (assigns||[]).map(a=>a.car_id).filter(Boolean);
+      const { data: logs } = carIds.length ? await db.from('car_maintenance_log').select('*').in('car_id', carIds) : { data: [] };
+      const logsByCar = {};
+      (logs||[]).forEach(l => { (logsByCar[l.car_id] ||= []).push(l); });
+
+      const alerts = [];
+      (assigns||[]).forEach(a => {
+        if (!a.car_id) return;
+        const summary = getCarMaintenanceSummary(logsByCar[a.car_id]||[]);
+        Object.values(summary).forEach(s => {
+          if (s.status === 'due_soon' || s.status === 'overdue') alerts.push({ car: a.cars, ...s });
+        });
+      });
+      alerts.sort((x,y) => (x.daysUntilDue??0) - (y.daysUntilDue??0));
+
+      if (!alerts.length) {
+        maintList.innerHTML = `<div class="empty-state"><p>All vehicles up to date. ✅</p></div>`;
+      } else {
+        maintList.innerHTML = alerts.slice(0,4).map(a => `
+          <div class="pending-item">
+            <div class="pending-dot ${a.status==='overdue'?'red':'amber'}"></div>
+            <div style="flex:1"><div style="font-weight:600;font-size:.88rem">${a.car ? a.car.make+' '+a.car.model+' · '+a.car.plate_number : 'Vehicle'}</div><div style="font-size:.75rem;color:var(--gray-400)">${a.label} ${a.status==='overdue' ? 'overdue' : 'due '+formatMaintenanceDate(a.dueDate)}</div></div>
+            <span class="badge ${a.status==='overdue'?'badge-red':'badge-amber'}">${a.status==='overdue'?'Overdue':'Due Soon'}</span>
           </div>`).join('');
       }
     }
