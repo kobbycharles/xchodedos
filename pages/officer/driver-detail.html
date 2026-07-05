@@ -9,13 +9,13 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --brand:#1a56db; --brand-dark:#1239a5; --brand-light:#e8eeff;
+      --brand:#dc2626; --brand-dark:#991b1b; --brand-light:#f5f5f5;
       --success:#12b76a; --success-bg:#ecfdf3; --warning:#f59e0b; --warning-bg:#fffbeb;
       --danger:#ef4444; --danger-bg:#fef2f2;
       --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db;
       --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151;
       --gray-800:#1f2937; --gray-900:#111827;
-      --border:#e5e7eb; --bg:#f5f7ff;
+      --border:#e5e7eb; --bg:#fafafa;
       --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif;
       --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:9999px;
       --shadow-sm:0 1px 3px rgba(0,0,0,.08); --nav-h:64px;
@@ -517,11 +517,13 @@
   };
 
   window.deleteDriver = async () => {
-    if (!confirm('Delete this driver? This permanently removes their profile, assignment history, and deactivates their login. This cannot be undone.')) return;
+    if (!confirm('Delete this driver? Their profile, contract, and payment history are kept for your records, but they will no longer appear in active lists and will not be able to log in. This can be undone by a super admin if needed.')) return;
     if (assignment) {
+      await db.from('driver_assignments').update({ is_active:false, unassigned_at:new Date().toISOString() }).eq('id', assignment.id);
       await db.from('cars').update({ status:'available' }).eq('id', assignment.car_id);
     }
-    const { error } = await db.from('profiles').delete().eq('id', driverId);
+    await db.from('officer_driver_assignments').update({ is_active:false }).eq('driver_id', driverId);
+    const { error } = await db.from('profiles').update({ is_active:false, deleted_at: new Date().toISOString() }).eq('id', driverId);
     if (error) { toast('Failed to delete driver: ' + error.message, 'error'); return; }
     toast('Driver deleted','success');
     setTimeout(() => { window.location.href = '/pages/officer/drivers.html'; }, 800);

@@ -4,9 +4,9 @@
 /* ── Design Tokens ─────────────────────────────────────────── */
 :root {
   /* Brand */
-  --brand:        #1a56db;
-  --brand-light:  #e8eeff;
-  --brand-dark:   #1239a5;
+  --brand:        #dc2626;
+  --brand-light:  #f5f5f5;
+  --brand-dark:   #991b1b;
 
   /* Status colours */
   --success:      #12b76a;
@@ -31,11 +31,11 @@
   --gray-900:     #111827;
 
   /* Surface */
-  --bg:           #f5f7ff;
+  --bg:           #fafafa;
   --surface:      #ffffff;
   --surface-2:    #f9fafb;
   --border:       #e5e7eb;
-  --border-focus: #1a56db;
+  --border-focus: #dc2626;
 
   /* Type */
   --font-display: 'Space Grotesk', sans-serif;
