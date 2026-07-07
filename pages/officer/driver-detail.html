@@ -65,6 +65,7 @@
     .badge-green { background:var(--success-bg); color:#065f46; }
     .badge-amber { background:var(--warning-bg); color:#92400e; }
     .badge-red   { background:var(--danger-bg);  color:#991b1b; }
+    .badge-gray  { background:var(--gray-100);    color:var(--gray-600); }
     .badge-blue  { background:var(--brand-light); color:var(--brand-dark); }
 
     .btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; padding:.55rem .875rem; border:none; border-radius:var(--r-sm); font-family:var(--font-body); font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:none; }
@@ -116,6 +117,11 @@
     .toast.success { background:#065f46; }
     .toast.error   { background:#991b1b; }
     @keyframes toast-in { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:flex-end; justify-content:center; z-index:100; }
+    .modal-overlay.open { display:flex; }
+    .modal-sheet { background:#fff; width:100%; max-width:480px; border-radius:16px 16px 0 0; padding:1.25rem; max-height:85vh; overflow-y:auto; }
+    .edit-icon-btn { background:none; border:none; color:var(--gray-400); cursor:pointer; padding:.2rem; display:inline-flex; }
+    .edit-icon-btn:hover { color:var(--brand); }
   </style>
 </head>
 <body>
@@ -169,6 +175,9 @@
     <div id="paymentList"><div class="skeleton" style="height:14px;margin-bottom:.75rem"></div></div>
   </div>
 
+  <!-- Lead application details (carried over from onboarding) -->
+  <div id="leadInfoSection"></div>
+
   <!-- Danger zone -->
   <div id="dangerSection"></div>
 </main>
@@ -181,6 +190,40 @@
   <a href="/pages/officer/fleet.html" class="nav-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1l3-4h8l3 4h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>Fleet</a>
 </nav>
 <div id="toast-container"></div>
+
+<!-- Edit Contract modal -->
+<div class="modal-overlay" id="contractModal" onclick="closeContractModal(event)">
+  <div class="modal-sheet">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:1rem">Edit Contract</div>
+    <div class="form-group"><label class="form-label">Weekly Payment (GHS)</label><input class="form-input" type="number" id="editWeekly" min="0" step="0.01"/></div>
+    <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="editStart"/></div>
+    <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="editEnd"/></div>
+    <div id="contractErr" style="display:none;margin-bottom:.75rem;padding:.7rem;background:var(--danger-bg);border-radius:8px;font-size:.8rem;color:#991b1b"></div>
+    <div style="display:flex;gap:.6rem">
+      <button class="btn btn-outline" style="flex:1" onclick="closeContractModal()">Cancel</button>
+      <button class="btn" style="flex:1;background:var(--brand);color:#fff" id="saveContractBtn" onclick="saveContractEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Payment modal -->
+<div class="modal-overlay" id="paymentModal" onclick="closePaymentModal(event)">
+  <div class="modal-sheet">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:1rem" id="paymentModalTitle">Edit Payment</div>
+    <div class="form-group"><label class="form-label">Amount (GHS)</label><input class="form-input" type="number" id="editAmount" min="0" step="0.01"/></div>
+    <div class="form-group"><label class="form-label">Week Starting</label><input class="form-input" type="date" id="editWeekStarting"/></div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-input" id="editStatus"><option value="paid">Paid</option><option value="pending">Pending</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="editNotes"/></div>
+    <div id="paymentErr" style="display:none;margin-bottom:.75rem;padding:.7rem;background:var(--danger-bg);border-radius:8px;font-size:.8rem;color:#991b1b"></div>
+    <div style="display:flex;gap:.6rem">
+      <button class="btn btn-outline" style="flex:1" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn" style="flex:1;background:var(--brand);color:#fff" id="savePaymentBtn" onclick="savePaymentEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -251,6 +294,33 @@
     document.getElementById('pageTitle').textContent = driver.full_name.split(' ')[0];
     document.getElementById('recordPayLink').href = `/pages/officer/record-payment.html?driver=${driverId}`;
 
+    // Lead application details (from onboarding, before they became a driver)
+    const { data: leadRow } = await db.from('leads').select('*, guarantors(*)').eq('profile_id', driverId).order('created_at', { ascending:false }).limit(1).maybeSingle();
+    const leadSection = document.getElementById('leadInfoSection');
+    if (leadRow) {
+      const fmtD = d => d ? new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+      const testBadge = (passed) => passed===true ? '<span class="badge badge-green">Passed</span>' : passed===false ? '<span class="badge badge-red">Failed</span>' : '<span class="badge badge-gray">—</span>';
+      leadSection.innerHTML = `
+        <div class="detail-card">
+          <div class="detail-card-title">Lead Application</div>
+          <div class="detail-row"><span class="detail-key">Drive Test</span><span class="detail-val">${fmtD(leadRow.drive_test_date)} · ${leadRow.drive_test_score ?? '—'} ${testBadge(leadRow.drive_test_passed)}</span></div>
+          <div class="detail-row"><span class="detail-key">Knowledge Test</span><span class="detail-val">${fmtD(leadRow.knowledge_test_date)} · ${leadRow.knowledge_test_score ?? '—'} ${testBadge(leadRow.knowledge_test_passed)}</span></div>
+          <div class="detail-row"><span class="detail-key">Security Deposit</span><span class="detail-val">GHS ${leadRow.security_deposit ?? 0} ${leadRow.deposit_paid ? '<span class="badge badge-green">Paid</span>' : '<span class="badge badge-amber">Unpaid</span>'}</span></div>
+          ${leadRow.notes ? `<div class="detail-row"><span class="detail-key">Notes</span><span class="detail-val">${leadRow.notes}</span></div>` : ''}
+          ${(leadRow.guarantors||[]).map((g,i) => `
+            <div style="margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--gray-100)">
+              <div style="font-weight:700;font-size:.8rem;margin-bottom:.4rem">Guarantor ${i+1}${g.verified ? ' <span class="badge badge-green">Verified</span>' : ''}</div>
+              <div class="detail-row"><span class="detail-key">Name</span><span class="detail-val">${g.full_name}</span></div>
+              <div class="detail-row"><span class="detail-key">Phone</span><span class="detail-val">${g.phone}</span></div>
+              <div class="detail-row"><span class="detail-key">ID Number</span><span class="detail-val">${g.id_number}</span></div>
+              ${g.relationship ? `<div class="detail-row"><span class="detail-key">Relationship</span><span class="detail-val">${g.relationship}</span></div>` : ''}
+              ${g.address ? `<div class="detail-row"><span class="detail-key">Address</span><span class="detail-val">${g.address}</span></div>` : ''}
+            </div>`).join('')}
+        </div>`;
+    } else {
+      leadSection.innerHTML = '';
+    }
+
     // Hero
     const dIni = driver.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
     const joinDate = new Date(driver.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
@@ -282,7 +352,10 @@
           <span class="badge badge-green">Assigned</span>
         </div>
         <div class="detail-card" style="margin-bottom:1rem">
-          <div class="detail-card-title">Contract</div>
+          <div class="detail-card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Contract</span>
+            <button class="btn-log" style="background:var(--brand);color:#fff;border:none;border-radius:8px;padding:.3rem .65rem;font-size:.72rem;font-weight:600" onclick="openEditContract()">Edit</button>
+          </div>
           <div class="detail-row"><span class="detail-key">Start Date</span><span class="detail-val">${startStr}</span></div>
           <div class="detail-row"><span class="detail-key">End Date</span><span class="detail-val">${endStr}</span></div>
           <div class="detail-row"><span class="detail-key">Weekly Payment</span><span class="detail-val">GHS ${assignment.weekly_payment}</span></div>
@@ -446,13 +519,92 @@
         </div>
         ${recent.map(p => `<div class="payment-row">
           <div>
-            <div class="payment-amount">GHS ${parseFloat(p.amount).toFixed(2)}</div>
+            <div class="payment-amount">GHS ${parseFloat(p.amount).toFixed(2)} ${p.payment_method==='deposit'?'<span class="badge badge-blue" style="margin-left:.3rem">Deposit</span>':''}</div>
             <div class="payment-meta">Week of ${p.week_starting} · ${p.payment_method||'cash'}</div>
           </div>
           <span class="badge ${p.status==='paid'?'badge-green':'badge-amber'}">${p.status}</span>
+          <button class="edit-icon-btn" onclick='openPaymentEdit(${JSON.stringify(p)})' title="Edit payment">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          </button>
         </div>`).join('')}`;
     }
   }
+
+  // ── Edit Contract (weekly payment / dates → drives "total to be paid") ──
+  window.openEditContract = () => {
+    if (!assignment) return;
+    document.getElementById('editWeekly').value = assignment.weekly_payment || '';
+    document.getElementById('editStart').value = assignment.hire_start_date || '';
+    document.getElementById('editEnd').value = assignment.hire_end_date || '';
+    document.getElementById('contractErr').style.display = 'none';
+    document.getElementById('contractModal').classList.add('open');
+  };
+  window.closeContractModal = (e) => { if (!e || e.target === document.getElementById('contractModal')) document.getElementById('contractModal').classList.remove('open'); };
+
+  window.saveContractEdit = async () => {
+    const errEl = document.getElementById('contractErr');
+    const weekly = parseFloat(document.getElementById('editWeekly').value);
+    const start = document.getElementById('editStart').value;
+    const end = document.getElementById('editEnd').value || null;
+    if (!weekly || weekly <= 0) { errEl.textContent = 'Enter a valid weekly payment amount.'; errEl.style.display = 'block'; return; }
+    if (!start) { errEl.textContent = 'Start date is required.'; errEl.style.display = 'block'; return; }
+    const btn = document.getElementById('saveContractBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const { error } = await db.from('driver_assignments').update({
+        weekly_payment: weekly, hire_start_date: start, hire_end_date: end,
+      }).eq('id', assignment.id);
+      if (error) throw error;
+      toast('Contract updated', 'success');
+      closeContractModal();
+      await init();
+    } catch(e) {
+      errEl.textContent = e.message || 'Failed to update contract.'; errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  };
+
+  // ── Edit an individual payment (weekly payment OR the initial deposit —
+  // the deposit is just a payments row with payment_method='deposit', so
+  // this same modal covers both). ──
+  let editingPaymentId = null;
+  window.openPaymentEdit = (p) => {
+    editingPaymentId = p.id;
+    document.getElementById('paymentModalTitle').textContent = p.payment_method === 'deposit' ? 'Edit Initial Deposit' : 'Edit Payment';
+    document.getElementById('editAmount').value = p.amount;
+    document.getElementById('editWeekStarting').value = p.week_starting;
+    document.getElementById('editStatus').value = p.status;
+    document.getElementById('editNotes').value = p.notes || '';
+    document.getElementById('paymentErr').style.display = 'none';
+    document.getElementById('paymentModal').classList.add('open');
+  };
+  window.closePaymentModal = (e) => { if (!e || e.target === document.getElementById('paymentModal')) document.getElementById('paymentModal').classList.remove('open'); };
+
+  window.savePaymentEdit = async () => {
+    const errEl = document.getElementById('paymentErr');
+    const amount = parseFloat(document.getElementById('editAmount').value);
+    const weekStarting = document.getElementById('editWeekStarting').value;
+    if (!amount || amount < 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
+    if (!weekStarting) { errEl.textContent = 'Week starting date is required.'; errEl.style.display = 'block'; return; }
+    const btn = document.getElementById('savePaymentBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const { error } = await db.from('payments').update({
+        amount, week_starting: weekStarting,
+        status: document.getElementById('editStatus').value,
+        notes: document.getElementById('editNotes').value.trim() || null,
+      }).eq('id', editingPaymentId);
+      if (error) throw error;
+      toast('Payment updated', 'success');
+      closePaymentModal();
+      await init();
+    } catch(e) {
+      errEl.textContent = e.message || 'Failed to update payment.'; errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  };
 
   window.copyCred = async (text, btn) => {
     try {

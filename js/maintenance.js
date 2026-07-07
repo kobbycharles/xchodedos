@@ -7,6 +7,8 @@ const MAINTENANCE_TYPES = {
   oil_change:          { label: 'Engine Oil Change',     intervalDays: 30  },
   transmission_fluid:  { label: 'Transmission Fluid',    intervalDays: 365 },
   coolant_flush:       { label: 'Coolant Flush',         intervalDays: 183 },
+  roadworthy:          { label: 'Roadworthy Certificate',intervalDays: 365, usesExplicitDueDate: true },
+  insurance:           { label: 'Insurance',             intervalDays: 365, usesExplicitDueDate: true },
 };
 
 // A reminder starts showing this many days before the due date.
@@ -15,12 +17,21 @@ const MAINTENANCE_DUE_SOON_WINDOW_DAYS = 7;
 // Given the most recent service_date for one maintenance type (or null
 // if it's never been logged), return its due date and status.
 // status: 'unknown' | 'ok' | 'due_soon' | 'overdue'
-function computeMaintenanceStatus(lastServiceDate, intervalDays) {
+// explicitDueDate: for types like roadworthy/insurance, the renewal date
+// is set by an outside authority (inspection center, insurer) rather than
+// always landing exactly N days after the last one — pass it in when known
+// and it overrides the interval-based calculation.
+function computeMaintenanceStatus(lastServiceDate, intervalDays, explicitDueDate) {
   if (!lastServiceDate) return { dueDate: null, daysUntilDue: null, status: 'unknown' };
 
-  const last = new Date(lastServiceDate); last.setHours(0,0,0,0);
   const today = new Date(); today.setHours(0,0,0,0);
-  const dueDate = new Date(last.getTime() + intervalDays*24*60*60*1000);
+  let dueDate;
+  if (explicitDueDate) {
+    dueDate = new Date(explicitDueDate); dueDate.setHours(0,0,0,0);
+  } else {
+    const last = new Date(lastServiceDate); last.setHours(0,0,0,0);
+    dueDate = new Date(last.getTime() + intervalDays*24*60*60*1000);
+  }
   const daysUntilDue = Math.round((dueDate - today) / (24*60*60*1000));
 
   let status = 'ok';
@@ -31,17 +42,20 @@ function computeMaintenanceStatus(lastServiceDate, intervalDays) {
 }
 
 // Given all car_maintenance_log rows for ONE car, return a status
-// object per maintenance type using each type's most recent service_date.
+// object per maintenance type using each type's most recent service_date
+// (and next_due_date, for types that track an explicit renewal date).
 function getCarMaintenanceSummary(logs) {
   const summary = {};
   for (const type of Object.keys(MAINTENANCE_TYPES)) {
     const entries = (logs||[]).filter(l => l.maintenance_type === type)
       .sort((a,b) => new Date(b.service_date) - new Date(a.service_date));
-    const last = entries[0]?.service_date || null;
+    const latest = entries[0];
+    const last = latest?.service_date || null;
+    const explicitDue = latest?.next_due_date || null;
     summary[type] = {
       ...MAINTENANCE_TYPES[type],
       lastServiceDate: last,
-      ...computeMaintenanceStatus(last, MAINTENANCE_TYPES[type].intervalDays),
+      ...computeMaintenanceStatus(last, MAINTENANCE_TYPES[type].intervalDays, explicitDue),
     };
   }
   return summary;
