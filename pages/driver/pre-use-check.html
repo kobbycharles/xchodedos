@@ -86,6 +86,10 @@
     .error-box { margin-top:.875rem; padding:.75rem; background:var(--danger-bg); border:1px solid #fca5a5; border-radius:var(--r-sm); font-size:.82rem; color:#991b1b; display:none; }
     .error-box.show { display:block; }
 
+    .photo-thumb { position:relative; width:76px; height:76px; border-radius:var(--r-sm); overflow:hidden; border:1px solid var(--border); }
+    .photo-thumb img { width:100%; height:100%; object-fit:cover; }
+    .photo-thumb .remove-photo { position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:.75rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+
     .already-submitted { background:var(--warning-bg); border:1px solid #fde68a; border-radius:var(--r-lg); padding:1.25rem; text-align:center; }
     .already-submitted.approved { background:var(--success-bg); border-color:#a7f3d0; }
 
@@ -202,6 +206,15 @@
       </div>
     </div>
 
+    <!-- Vehicle photos -->
+    <div class="check-section">
+      <div class="check-section-title">Vehicle Photos</div>
+      <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:.75rem">Take at least one photo showing the car's current condition (front, back, or any damage).</p>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" multiple style="display:none" onchange="handlePhotoSelect(event)"/>
+      <button type="button" class="btn" style="background:var(--brand-light);color:var(--brand-dark);margin-top:0" onclick="document.getElementById('photoInput').click()">📷 Add Photo</button>
+      <div id="photoPreviews" style="display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.75rem"></div>
+    </div>
+
     <!-- Driver notes -->
     <div class="check-section">
       <div class="check-section-title">Driver Notes</div>
@@ -242,6 +255,28 @@
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let driverProfile = null, assignedCarId = null;
   const levels = { fuel: null, oil: null, water: null };
+  let selectedPhotos = []; // File objects
+
+  window.handlePhotoSelect = (event) => {
+    const files = Array.from(event.target.files || []);
+    selectedPhotos.push(...files);
+    event.target.value = ''; // allow selecting the same file again if removed
+    renderPhotoPreviews();
+  };
+
+  window.removePhoto = (index) => {
+    selectedPhotos.splice(index, 1);
+    renderPhotoPreviews();
+  };
+
+  function renderPhotoPreviews() {
+    const el = document.getElementById('photoPreviews');
+    el.innerHTML = selectedPhotos.map((file, i) => `
+      <div class="photo-thumb">
+        <img src="${URL.createObjectURL(file)}"/>
+        <button type="button" class="remove-photo" onclick="removePhoto(${i})">✕</button>
+      </div>`).join('');
+  }
 
   // Set today date
   const today = new Date();
@@ -274,6 +309,7 @@
 
     // Require at least fuel level
     if (!levels.fuel) { errEl.textContent = 'Please select a fuel level.'; errEl.classList.add('show'); return; }
+    if (!selectedPhotos.length) { errEl.textContent = 'Please add at least one photo of the vehicle.'; errEl.classList.add('show'); return; }
 
     const btn = document.getElementById('submitBtn');
     document.getElementById('submitLabel').style.display = 'none';
@@ -281,6 +317,18 @@
     btn.disabled = true;
 
     try {
+      // Upload photos first
+      const photoUrls = [];
+      for (let i = 0; i < selectedPhotos.length; i++) {
+        const file = selectedPhotos[i];
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = `${driverProfile.id}/${today.toISOString().split('T')[0]}-${Date.now()}-${i}.${ext}`;
+        const { error: upErr } = await db.storage.from('pre-check-photos').upload(path, file, { contentType: file.type || 'image/jpeg' });
+        if (upErr) throw new Error('Photo upload failed: ' + upErr.message);
+        const { data: pub } = db.storage.from('pre-check-photos').getPublicUrl(path);
+        photoUrls.push(pub.publicUrl);
+      }
+
       const bodyDamage = document.getElementById('bodyDamage').checked;
       const { error } = await db.from('pre_use_checks').insert({
         driver_id:    driverProfile.id,
@@ -294,6 +342,7 @@
         body_damage_notes: bodyDamage ? document.getElementById('damageNotes').value.trim() : null,
         odometer_start: parseInt(document.getElementById('odometer').value) || null,
         driver_notes: document.getElementById('driverNotes').value.trim() || null,
+        photo_urls: photoUrls,
         status: 'pending',
       });
       if (error) throw error;

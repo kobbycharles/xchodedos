@@ -193,6 +193,11 @@
       </div>
       ${c.body_damage ? `<div style="background:var(--danger-bg);border-radius:8px;padding:.75rem;margin-bottom:.75rem;font-size:.82rem;color:#991b1b">⚠️ Body damage reported: ${c.body_damage_notes||'No details'}</div>` : ''}
       ${c.driver_notes ? `<div style="background:var(--gray-50);border-radius:8px;padding:.75rem;margin-bottom:.75rem;font-size:.82rem"><strong>Driver notes:</strong> ${c.driver_notes}</div>` : ''}
+      ${(c.photo_urls && c.photo_urls.length) ? `
+        <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-bottom:.5rem">Vehicle Photos</div>
+        <div style="display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.875rem">
+          ${c.photo_urls.map(url => `<a href="${url}" target="_blank"><img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"/></a>`).join('')}
+        </div>` : ''}
       <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-bottom:.5rem">Officer Notes</div>`;
 
     const actions = document.getElementById('modalActions');

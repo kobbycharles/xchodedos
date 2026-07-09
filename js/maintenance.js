@@ -9,6 +9,7 @@ const MAINTENANCE_TYPES = {
   coolant_flush:       { label: 'Coolant Flush',         intervalDays: 183 },
   roadworthy:          { label: 'Roadworthy Certificate',intervalDays: 365, usesExplicitDueDate: true },
   insurance:           { label: 'Insurance',             intervalDays: 365, usesExplicitDueDate: true },
+  other:               { label: 'Other Activity',        intervalDays: null, isGeneral: true },
 };
 
 // A reminder starts showing this many days before the due date.
@@ -47,6 +48,7 @@ function computeMaintenanceStatus(lastServiceDate, intervalDays, explicitDueDate
 function getCarMaintenanceSummary(logs) {
   const summary = {};
   for (const type of Object.keys(MAINTENANCE_TYPES)) {
+    if (MAINTENANCE_TYPES[type].isGeneral) continue; // one-off activities aren't a recurring schedule item
     const entries = (logs||[]).filter(l => l.maintenance_type === type)
       .sort((a,b) => new Date(b.service_date) - new Date(a.service_date));
     const latest = entries[0];

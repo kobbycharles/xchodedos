@@ -105,12 +105,24 @@
   <div class="modal-sheet">
     <div style="font-weight:700;font-size:1rem;margin-bottom:1rem" id="logModalTitle">Log Service</div>
     <div class="form-group">
-      <label class="form-label">Service Date</label>
+      <label class="form-label" id="serviceDateLabel">Service Date</label>
       <input class="form-input" type="date" id="serviceDate"/>
     </div>
-    <div class="form-group">
+    <div class="form-group" id="dueDateGroup" style="display:none">
+      <label class="form-label">Renewal / Expiry Date</label>
+      <input class="form-input" type="date" id="serviceDueDate"/>
+    </div>
+    <div class="form-group" id="odometerGroup">
       <label class="form-label">Odometer (km, optional)</label>
       <input class="form-input" type="number" id="serviceOdometer" placeholder="e.g. 45200"/>
+    </div>
+    <div class="form-group" id="descriptionGroup" style="display:none">
+      <label class="form-label">Description</label>
+      <input class="form-input" id="serviceDescription" placeholder="e.g. Replaced front-left tire"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Cost (GHS, optional)</label>
+      <input class="form-input" type="number" id="serviceCost" min="0" step="0.01" placeholder="0.00"/>
     </div>
     <div class="form-group">
       <label class="form-label">Notes (optional)</label>
@@ -120,6 +132,35 @@
     <div style="display:flex;gap:.6rem">
       <button class="btn btn-ghost" style="flex:1" onclick="closeLogModal()">Cancel</button>
       <button class="btn btn-primary" style="flex:1" id="saveLogBtn" onclick="saveLog()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Car modal -->
+<div class="modal-overlay" id="editCarModal" onclick="closeEditCar(event)">
+  <div class="modal-sheet">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:1rem">Edit Car Details</div>
+    <div class="form-group"><label class="form-label">Make</label><input class="form-input" id="carMake"/></div>
+    <div class="form-group"><label class="form-label">Model</label><input class="form-input" id="carModel"/></div>
+    <div class="form-group"><label class="form-label">Year</label><input class="form-input" type="number" id="carYear"/></div>
+    <div class="form-group"><label class="form-label">Color</label><input class="form-input" id="carColor"/></div>
+    <div class="form-group"><label class="form-label">Plate Number</label><input class="form-input" id="carPlate" style="text-transform:uppercase"/></div>
+    <div class="form-group"><label class="form-label">VIN / Chassis No.</label><input class="form-input" id="carVin"/></div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-input" id="carStatus">
+        <option value="available">Available</option>
+        <option value="assigned">Assigned</option>
+        <option value="maintenance">In Maintenance</option>
+        <option value="retired">Retired</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Weekly Rate (GHS)</label><input class="form-input" type="number" id="carWeeklyRate" min="0" step="0.01"/></div>
+    <div class="form-group"><label class="form-label">Mileage (km)</label><input class="form-input" type="number" id="carMileage" min="0"/></div>
+    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="carNotes"/></div>
+    <div id="editCarErr" style="display:none;margin-bottom:.75rem;padding:.7rem;background:var(--danger-bg);border-radius:8px;font-size:.8rem;color:#991b1b"></div>
+    <div style="display:flex;gap:.6rem">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeEditCar()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="saveEditCarBtn" onclick="saveEditCar()">Save</button>
     </div>
   </div>
 </div>
@@ -144,10 +185,24 @@
 
   window.openLogModal = (type) => {
     pendingType = type;
-    document.getElementById('logModalTitle').textContent = 'Log ' + (MAINTENANCE_TYPES[type]?.label || 'Service');
+    const cfg = MAINTENANCE_TYPES[type] || {};
+    document.getElementById('logModalTitle').textContent = 'Log ' + (cfg.label || 'Service');
     document.getElementById('serviceDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('serviceOdometer').value = car?.mileage || '';
     document.getElementById('serviceNotes').value = '';
+    document.getElementById('serviceCost').value = '';
+    document.getElementById('serviceDescription').value = '';
+    document.getElementById('serviceDueDate').value = '';
+    document.getElementById('descriptionGroup').style.display = cfg.isGeneral ? '' : 'none';
+    if (cfg.usesExplicitDueDate) {
+      document.getElementById('serviceDateLabel').textContent = 'Renewal Date (today)';
+      document.getElementById('dueDateGroup').style.display = '';
+      document.getElementById('odometerGroup').style.display = 'none';
+    } else {
+      document.getElementById('serviceDateLabel').textContent = cfg.isGeneral ? 'Date' : 'Service Date';
+      document.getElementById('dueDateGroup').style.display = 'none';
+      document.getElementById('odometerGroup').style.display = '';
+    }
     document.getElementById('logErr').style.display = 'none';
     document.getElementById('logModal').classList.add('open');
   };
@@ -156,28 +211,39 @@
   window.saveLog = async () => {
     const errEl = document.getElementById('logErr');
     const date = document.getElementById('serviceDate').value;
-    if (!date) { errEl.textContent = 'Please pick a service date.'; errEl.style.display = 'block'; return; }
+    if (!date) { errEl.textContent = 'Please pick a date.'; errEl.style.display = 'block'; return; }
+    const cfg = MAINTENANCE_TYPES[pendingType] || {};
+    const description = document.getElementById('serviceDescription').value.trim();
+    if (cfg.isGeneral && !description) { errEl.textContent = 'Please describe the activity.'; errEl.style.display = 'block'; return; }
     const btn = document.getElementById('saveLogBtn');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
       const odo = parseInt(document.getElementById('serviceOdometer').value) || null;
+      const dueDate = document.getElementById('serviceDueDate').value || null;
+      const cost = parseFloat(document.getElementById('serviceCost').value) || null;
+      const extraNotes = document.getElementById('serviceNotes').value.trim();
+      const notes = cfg.isGeneral
+        ? [description, extraNotes].filter(Boolean).join(' — ') || null
+        : (extraNotes || null);
       const { error } = await db.from('car_maintenance_log').insert({
         car_id: carId,
         maintenance_type: pendingType,
         service_date: date,
+        next_due_date: dueDate,
         odometer: odo,
-        notes: document.getElementById('serviceNotes').value.trim() || null,
+        cost,
+        notes,
         recorded_by: officerId,
       });
       if (error) throw error;
       if (odo && odo > (car.mileage||0)) {
         await db.from('cars').update({ mileage: odo }).eq('id', carId);
       }
-      toast('Service logged', 'success');
+      toast('Logged', 'success');
       closeLogModal();
       await loadAll();
     } catch(e) {
-      errEl.textContent = e.message || 'Failed to log service.';
+      errEl.textContent = e.message || 'Failed to log activity.';
       errEl.style.display = 'block';
     } finally {
       btn.disabled = false; btn.textContent = 'Save';
@@ -186,9 +252,60 @@
 
   function renderHero() {
     document.getElementById('carHero').innerHTML = `
-      <div class="car-hero-name">${car.make} ${car.model} ${car.year}</div>
-      <div class="car-hero-sub">${car.plate_number}${car.color ? ' · '+car.color : ''} · ${car.mileage ? car.mileage.toLocaleString()+' km' : 'mileage unknown'}</div>`;
+      <div style="flex:1">
+        <div class="car-hero-name">${car.make} ${car.model} ${car.year}</div>
+        <div class="car-hero-sub">${car.plate_number}${car.color ? ' · '+car.color : ''} · ${car.mileage ? car.mileage.toLocaleString()+' km' : 'mileage unknown'}</div>
+      </div>
+      <button class="btn-log" onclick="openEditCar()">Edit</button>`;
   }
+
+  window.openEditCar = () => {
+    document.getElementById('carMake').value = car.make || '';
+    document.getElementById('carModel').value = car.model || '';
+    document.getElementById('carYear').value = car.year || '';
+    document.getElementById('carColor').value = car.color || '';
+    document.getElementById('carPlate').value = car.plate_number || '';
+    document.getElementById('carVin').value = car.vin || '';
+    document.getElementById('carStatus').value = car.status || 'available';
+    document.getElementById('carWeeklyRate').value = car.weekly_rate || '';
+    document.getElementById('carMileage').value = car.mileage || '';
+    document.getElementById('carNotes').value = car.notes || '';
+    document.getElementById('editCarErr').style.display = 'none';
+    document.getElementById('editCarModal').classList.add('open');
+  };
+  window.closeEditCar = (e) => { if (!e || e.target === document.getElementById('editCarModal')) document.getElementById('editCarModal').classList.remove('open'); };
+
+  window.saveEditCar = async () => {
+    const errEl = document.getElementById('editCarErr');
+    const make = document.getElementById('carMake').value.trim();
+    const model = document.getElementById('carModel').value.trim();
+    const year = parseInt(document.getElementById('carYear').value);
+    const plate = document.getElementById('carPlate').value.trim().toUpperCase();
+    if (!make || !model || !year || !plate) { errEl.textContent = 'Make, model, year, and plate number are required.'; errEl.style.display = 'block'; return; }
+    const btn = document.getElementById('saveEditCarBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const { error } = await db.from('cars').update({
+        make, model, year,
+        color: document.getElementById('carColor').value.trim() || null,
+        plate_number: plate,
+        vin: document.getElementById('carVin').value.trim() || null,
+        status: document.getElementById('carStatus').value,
+        weekly_rate: parseFloat(document.getElementById('carWeeklyRate').value) || null,
+        mileage: parseInt(document.getElementById('carMileage').value) || 0,
+        notes: document.getElementById('carNotes').value.trim() || null,
+      }).eq('id', carId);
+      if (error) throw error;
+      toast('Car details updated', 'success');
+      closeEditCar();
+      await loadAll();
+    } catch(e) {
+      errEl.textContent = e.message || 'Failed to update car.';
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  };
 
   function renderMaintenance() {
     const summary = getCarMaintenanceSummary(logs);
@@ -216,7 +333,7 @@
     el.innerHTML = sorted.map(l => `
       <div class="history-item">
         <div class="history-type">${MAINTENANCE_TYPES[l.maintenance_type]?.label || l.maintenance_type}</div>
-        <div class="history-date">${formatMaintenanceDate(l.service_date)}${l.odometer ? ' · '+l.odometer.toLocaleString()+' km' : ''}</div>
+        <div class="history-date">${formatMaintenanceDate(l.service_date)}${l.odometer ? ' · '+l.odometer.toLocaleString()+' km' : ''}${l.next_due_date ? ' · renews '+formatMaintenanceDate(l.next_due_date) : ''}${l.cost ? ' · GHS '+parseFloat(l.cost).toFixed(2) : ''}</div>
         ${l.notes ? `<div class="history-notes">${l.notes}</div>` : ''}
       </div>
     `).join('');

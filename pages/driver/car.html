@@ -63,6 +63,7 @@
     .badge-green { background:var(--success-bg); color:#065f46; }
     .badge-amber { background:var(--warning-bg); color:#92400e; }
     .badge-red   { background:var(--danger-bg);  color:#991b1b; }
+    .badge-gray  { background:var(--gray-100);    color:var(--gray-600); }
 
     .no-car { background:var(--warning-bg); border:1px solid #fde68a; border-radius:var(--r-lg); padding:2rem 1.25rem; text-align:center; }
 
@@ -96,6 +97,7 @@
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/maintenance.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
@@ -120,6 +122,12 @@
     const assignment = assignmentRes.data;
     const checks     = checksRes.data || [];
     const el         = document.getElementById('carContent');
+
+    let maintLogs = [];
+    if (assignment?.car_id) {
+      const { data } = await db.from('car_maintenance_log').select('*').eq('car_id', assignment.car_id);
+      maintLogs = data || [];
+    }
 
     if (!assignment?.cars) {
       el.innerHTML = `<div class="no-car">
@@ -168,6 +176,24 @@
         <div class="detail-row"><span class="detail-key">Weeks Active</span><span class="detail-val">${weeksActive} weeks</span></div>
         ${assignment.hire_end_date ? `<div class="detail-row"><span class="detail-key">End Date</span><span class="detail-val">${new Date(assignment.hire_end_date).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span></div>` : ''}
         ${assignment.notes ? `<div class="detail-row"><span class="detail-key">Notes</span><span class="detail-val" style="font-size:.82rem">${assignment.notes}</span></div>` : ''}
+      </div>
+
+      <!-- Vehicle maintenance -->
+      <div class="detail-card">
+        <div class="detail-card-title">Vehicle Maintenance</div>
+        ${(() => {
+          const summary = getCarMaintenanceSummary(maintLogs);
+          const statusBadge = { unknown:'badge-gray', ok:'badge-green', due_soon:'badge-amber', overdue:'badge-red' };
+          const statusLabel = { unknown:'Not logged', ok:'Up to date', due_soon:'Due soon', overdue:'Overdue' };
+          return Object.values(summary).map(s => `
+            <div class="detail-row">
+              <span class="detail-key">${s.label}</span>
+              <span class="detail-val" style="text-align:right">
+                ${s.dueDate ? formatMaintenanceDate(s.dueDate) : (s.lastServiceDate ? 'Last: '+formatMaintenanceDate(s.lastServiceDate) : '—')}
+                <span class="badge ${statusBadge[s.status]}" style="margin-left:.4rem">${statusLabel[s.status]}</span>
+              </span>
+            </div>`).join('');
+        })()}
       </div>
 
       <!-- Recent checks -->
