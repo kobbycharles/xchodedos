@@ -198,6 +198,10 @@
     <div class="form-group"><label class="form-label">Weekly Payment (GHS)</label><input class="form-input" type="number" id="editWeekly" min="0" step="0.01"/></div>
     <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="editStart"/></div>
     <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="editEnd"/></div>
+    <div class="form-group">
+      <label class="form-label">Total Contract Value (GHS)</label>
+      <input class="form-input" type="number" id="editTotalValue" min="0" step="0.01" placeholder="Leave blank to auto-calculate from weekly × weeks"/>
+    </div>
     <div id="contractErr" style="display:none;margin-bottom:.75rem;padding:.7rem;background:var(--danger-bg);border-radius:8px;font-size:.8rem;color:#991b1b"></div>
     <div style="display:flex;gap:.6rem">
       <button class="btn btn-outline" style="flex:1" onclick="closeContractModal()">Cancel</button>
@@ -359,6 +363,7 @@
           <div class="detail-row"><span class="detail-key">Start Date</span><span class="detail-val">${startStr}</span></div>
           <div class="detail-row"><span class="detail-key">End Date</span><span class="detail-val">${endStr}</span></div>
           <div class="detail-row"><span class="detail-key">Weekly Payment</span><span class="detail-val">GHS ${assignment.weekly_payment}</span></div>
+          ${assignment.total_contract_value ? `<div class="detail-row"><span class="detail-key">Total Contract Value</span><span class="detail-val">GHS ${parseFloat(assignment.total_contract_value).toLocaleString()}</span></div>` : ''}
         </div>`;
     } else {
       carSection.innerHTML = `<div style="background:var(--warning-bg);border-radius:12px;padding:.875rem 1rem;margin-bottom:1rem;font-size:.85rem;color:#92400e;border:1px solid #fde68a;display:flex;align-items:center;justify-content:space-between;gap:.75rem">
@@ -435,9 +440,11 @@
 
       let payBar = '';
       const weekly = parseFloat(assignment.weekly_payment||0);
-      if (end && weekly) {
-        const totalWeeks = Math.max(1, Math.round((end-start)/msPerWeek));
-        const totalContractValue = totalWeeks * weekly;
+      const totalWeeks = end ? Math.max(1, Math.round((end-start)/msPerWeek)) : null;
+      const totalContractValue = assignment.total_contract_value
+        ? parseFloat(assignment.total_contract_value)
+        : (totalWeeks && weekly ? totalWeeks * weekly : null);
+      if (totalContractValue) {
         const pct = Math.min(100, Math.round((totalPaid/totalContractValue)*100));
         payBar = `
           <div class="progress-row">
@@ -536,6 +543,7 @@
     document.getElementById('editWeekly').value = assignment.weekly_payment || '';
     document.getElementById('editStart').value = assignment.hire_start_date || '';
     document.getElementById('editEnd').value = assignment.hire_end_date || '';
+    document.getElementById('editTotalValue').value = assignment.total_contract_value || '';
     document.getElementById('contractErr').style.display = 'none';
     document.getElementById('contractModal').classList.add('open');
   };
@@ -546,6 +554,8 @@
     const weekly = parseFloat(document.getElementById('editWeekly').value);
     const start = document.getElementById('editStart').value;
     const end = document.getElementById('editEnd').value || null;
+    const totalValueRaw = document.getElementById('editTotalValue').value;
+    const totalValue = totalValueRaw ? parseFloat(totalValueRaw) : null;
     if (!weekly || weekly <= 0) { errEl.textContent = 'Enter a valid weekly payment amount.'; errEl.style.display = 'block'; return; }
     if (!start) { errEl.textContent = 'Start date is required.'; errEl.style.display = 'block'; return; }
     const btn = document.getElementById('saveContractBtn');
@@ -553,6 +563,7 @@
     try {
       const { error } = await db.from('driver_assignments').update({
         weekly_payment: weekly, hire_start_date: start, hire_end_date: end,
+        total_contract_value: totalValue,
       }).eq('id', assignment.id);
       if (error) throw error;
       toast('Contract updated', 'success');
