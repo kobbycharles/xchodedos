@@ -107,9 +107,14 @@
   </div>
 
   <div id="formWrap">
-    <!-- Driver selector -->
-    <div style="font-family:var(--font-display);font-weight:700;font-size:.95rem;color:var(--gray-700);margin-bottom:.875rem">Select Driver</div>
-    <div id="driverSelector"><div style="height:56px;background:var(--gray-100);border-radius:12px;animation:shimmer 1.4s infinite"></div></div>
+    <!-- Locked driver (shown when arrived from a specific driver's page — the normal case) -->
+    <div id="lockedDriverCard" style="display:none"></div>
+
+    <!-- Driver picker (only shown as a fallback when no driver was pre-selected) -->
+    <div id="driverPickerWrap" style="display:none">
+      <div style="font-family:var(--font-display);font-weight:700;font-size:.95rem;color:var(--gray-700);margin-bottom:.875rem">Select Driver</div>
+      <div id="driverSelector"><div style="height:56px;background:var(--gray-100);border-radius:12px;animation:shimmer 1.4s infinite"></div></div>
+    </div>
 
     <!-- Payment form -->
     <div id="paymentForm" style="display:none;margin-top:1.25rem">
@@ -118,16 +123,16 @@
         <div class="section-div">Payment Details</div>
         <div class="form-group">
           <label class="form-label">Amount (GHS) *</label>
-          <input class="form-input" id="amount" type="number" inputmode="decimal" placeholder="0.00" min="0" step="0.01"/>
+          <input class="form-input" id="amount" type="number" inputmode="decimal" placeholder="0.00" min="0" step="0.01" oninput="updateConfirmSummary()"/>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Week Starting *</label>
-            <input class="form-input" id="weekStarting" type="date"/>
+            <input class="form-input" id="weekStarting" type="date" oninput="updateConfirmSummary()"/>
           </div>
           <div class="form-group">
             <label class="form-label">Method</label>
-            <select class="form-select" id="method">
+            <select class="form-select" id="method" onchange="updateConfirmSummary()">
               <option value="cash">Cash</option>
               <option value="mobile_money">Mobile Money</option>
               <option value="bank_transfer">Bank Transfer</option>
@@ -145,10 +150,16 @@
         </div>
       </div>
 
+      <!-- Confirmation summary — the one clear check before committing -->
+      <div class="card" id="confirmSummary" style="margin-top:1rem;background:var(--brand-light);border-color:#c7d7fb">
+        <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--brand-dark);margin-bottom:.5rem">You are recording</div>
+        <div id="confirmText" style="font-size:1.05rem;font-weight:700;color:var(--gray-900);line-height:1.4"></div>
+      </div>
+
       <div class="error-box" id="errBox"></div>
 
       <button class="btn btn-primary btn-full" style="margin-top:1rem" id="submitBtn" onclick="submitPayment()">
-        <span id="submitLabel">Record Payment</span>
+        <span id="submitLabel">Confirm & Record Payment</span>
         <div class="spinner" id="submitSpinner" style="display:none"></div>
       </button>
 
@@ -179,31 +190,94 @@
 
   function toast(msg, type='default') { const c=document.getElementById('toast-container'); const el=document.createElement('div'); el.className='toast '+type; el.textContent=msg; c.appendChild(el); setTimeout(()=>el.remove(),3000); }
 
-  async function selectDriver(d) {
+  async function lockDriver(d) {
     selectedDriver = d;
-    document.querySelectorAll('.driver-select-card').forEach(el => el.classList.toggle('selected', el.dataset.id === d.id));
+    document.getElementById('driverPickerWrap').style.display = 'none';
 
-    // Get active assignment
     const { data: asgn } = await db.from('driver_assignments').select('*, cars(make,model,plate_number)').eq('driver_id', d.id).eq('is_active', true).single();
     selectedAssignment = asgn;
 
+    const ini = d.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const carLabel = asgn?.cars ? `${asgn.cars.make} ${asgn.cars.model} (${asgn.cars.plate_number})` : 'No vehicle assigned';
+    document.getElementById('lockedDriverCard').innerHTML = `
+      <div class="card" style="display:flex;align-items:center;gap:.875rem;margin-bottom:1.25rem">
+        <div class="driver-avatar" style="background:var(--brand);color:#fff;width:44px;height:44px">${ini}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:1rem">${d.full_name}</div>
+          <div style="font-size:.78rem;color:var(--gray-400)">${carLabel}${asgn ? ' · GHS '+asgn.weekly_payment+'/wk' : ''}</div>
+        </div>
+        <a href="/pages/officer/record-payment.html" style="font-size:.75rem;color:var(--brand);font-weight:600;white-space:nowrap">Not them?</a>
+      </div>`;
+    document.getElementById('lockedDriverCard').style.display = '';
+
     if (asgn) {
       const hint = document.getElementById('weeklyHint');
-      hint.textContent = `Weekly rate: GHS ${asgn.weekly_payment} · ${asgn.cars?.make} ${asgn.cars?.model} (${asgn.cars?.plate_number})`;
+      hint.textContent = `Weekly rate: GHS ${asgn.weekly_payment} · ${carLabel}`;
       hint.classList.add('show');
       document.getElementById('amount').value = asgn.weekly_payment;
     }
 
-    // Set week starting to current Monday
-    const today = new Date();
-    const day = today.getDay();
-    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(today.setDate(diff));
-    document.getElementById('weekStarting').value = monday.toISOString().split('T')[0];
-
+    await setNextUnpaidWeek(d.id, asgn);
     document.getElementById('paymentForm').style.display = '';
+    updateConfirmSummary();
     loadRecentPayments(d.id);
   }
+
+  async function selectDriver(d) {
+    selectedDriver = d;
+    document.querySelectorAll('.driver-select-card').forEach(el => el.classList.toggle('selected', el.dataset.id === d.id));
+
+    const { data: asgn } = await db.from('driver_assignments').select('*, cars(make,model,plate_number)').eq('driver_id', d.id).eq('is_active', true).single();
+    selectedAssignment = asgn;
+    const carLabel = asgn?.cars ? `${asgn.cars.make} ${asgn.cars.model} (${asgn.cars.plate_number})` : '';
+
+    if (asgn) {
+      const hint = document.getElementById('weeklyHint');
+      hint.textContent = `Weekly rate: GHS ${asgn.weekly_payment} · ${carLabel}`;
+      hint.classList.add('show');
+      document.getElementById('amount').value = asgn.weekly_payment;
+    }
+
+    await setNextUnpaidWeek(d.id, asgn);
+    document.getElementById('paymentForm').style.display = '';
+    updateConfirmSummary();
+    loadRecentPayments(d.id);
+  }
+
+  // Defaults "Week Starting" to the actual next unpaid due week (based on
+  // the contract's start date and existing payment records) instead of
+  // blindly using "this week's Monday" — which might already be paid, or
+  // might not even align with this driver's actual weekly cycle.
+  async function setNextUnpaidWeek(driverId, assignment) {
+    const input = document.getElementById('weekStarting');
+    if (!assignment?.hire_start_date || !assignment.weekly_payment) {
+      const today = new Date();
+      input.value = today.toISOString().split('T')[0];
+      return;
+    }
+    const { data: payments } = await db.from('payments').select('week_starting, amount, status').eq('driver_id', driverId).eq('status','paid').neq('payment_method','deposit');
+    const paidWeeks = new Set((payments||[]).map(p => p.week_starting));
+
+    const start = new Date(assignment.hire_start_date); start.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const msPerWeek = 7*24*60*60*1000;
+
+    let nextWeek = new Date(start);
+    while (paidWeeks.has(nextWeek.toISOString().split('T')[0]) && nextWeek <= today) {
+      nextWeek = new Date(nextWeek.getTime() + msPerWeek);
+    }
+    input.value = nextWeek.toISOString().split('T')[0];
+  }
+
+  window.updateConfirmSummary = () => {
+    const el = document.getElementById('confirmText');
+    if (!selectedDriver) { el.textContent = ''; return; }
+    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    const week = document.getElementById('weekStarting').value;
+    const methodLabel = { cash:'Cash', mobile_money:'Mobile Money', bank_transfer:'Bank Transfer', other:'Other' }[document.getElementById('method').value];
+    const weekStr = week ? new Date(week).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+    el.innerHTML = `GHS ${amount.toFixed(2)} from <span style="color:var(--brand-dark)">${selectedDriver.full_name}</span><br/><span style="font-weight:500;font-size:.85rem;color:var(--gray-600)">Week of ${weekStr} · ${methodLabel}</span>`;
+  };
 
   async function loadRecentPayments(driverId) {
     const { data } = await db.from('payments').select('amount, week_starting, status, payment_method, paid_at').eq('driver_id', driverId).order('created_at', { ascending: false }).limit(5);
@@ -262,12 +336,21 @@
   };
 
   window.resetForm = () => {
-    selectedDriver = null; selectedAssignment = null;
     document.getElementById('successBanner').classList.remove('show');
     document.getElementById('formWrap').style.display='';
-    document.getElementById('paymentForm').style.display='none';
-    document.getElementById('weeklyHint').classList.remove('show');
-    document.querySelectorAll('.driver-select-card').forEach(el => el.classList.remove('selected'));
+    if (selectedDriver) {
+      // Stay on the same driver, but re-fetch the next unpaid week and
+      // clear the entered amount/reference/notes for the next entry.
+      document.getElementById('reference').value = '';
+      document.getElementById('notes').value = '';
+      setNextUnpaidWeek(selectedDriver.id, selectedAssignment).then(updateConfirmSummary);
+      if (selectedAssignment) document.getElementById('amount').value = selectedAssignment.weekly_payment;
+      loadRecentPayments(selectedDriver.id);
+    } else {
+      document.getElementById('paymentForm').style.display='none';
+      document.getElementById('weeklyHint').classList.remove('show');
+      document.querySelectorAll('.driver-select-card').forEach(el => el.classList.remove('selected'));
+    }
   };
 
   async function init() {
@@ -284,25 +367,42 @@
 
     const { data: asgns } = await db.from('officer_driver_assignments').select('driver_id').eq('officer_id', p.id).eq('is_active', true);
     const ids = (asgns||[]).map(a=>a.driver_id);
-    if (!ids.length) { document.getElementById('driverSelector').innerHTML='<div style="font-size:.85rem;color:var(--gray-400);padding:.5rem">No drivers assigned yet.</div>'; return; }
+    if (!ids.length) { document.getElementById('driverPickerWrap').style.display=''; document.getElementById('driverSelector').innerHTML='<div style="font-size:.85rem;color:var(--gray-400);padding:.5rem">No drivers assigned yet.</div>'; return; }
 
     const { data: drv } = await db.from('profiles').select('id, full_name, phone').in('id', ids).order('full_name');
     drivers = drv || [];
 
+    // If we arrived from a specific driver's page, lock straight to them —
+    // no list to misclick through.
+    const params = new URLSearchParams(location.search);
+    const preDriver = params.get('driver');
+    if (preDriver) {
+      const d = drivers.find(x => x.id === preDriver);
+      if (d) { await lockDriver(d); return; }
+      // preDriver id didn't match any of this officer's drivers — fall
+      // through to the picker rather than silently doing nothing.
+    }
+
+    // Fallback picker (only reached with no valid driver param, e.g. the
+    // dashboard's generic "Record Payment" quick action). Shows each
+    // driver's assigned vehicle instead of phone number, since phone is
+    // often blank and gives no way to tell two drivers apart.
+    document.getElementById('driverPickerWrap').style.display = '';
+    const carByDriver = {};
+    const { data: activeAsgns } = await db.from('driver_assignments').select('driver_id, cars(make,model,plate_number)').in('driver_id', ids).eq('is_active', true);
+    (activeAsgns||[]).forEach(a => { carByDriver[a.driver_id] = a.cars; });
+
     const sel = document.getElementById('driverSelector');
     sel.innerHTML = drivers.map(d => {
       const ini = d.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+      const c = carByDriver[d.id];
+      const sub = c ? `${c.make} ${c.model} · ${c.plate_number}` : 'No vehicle assigned';
       return `<div class="driver-select-card" data-id="${d.id}" onclick='selectDriver(${JSON.stringify(d)})'>
         <div class="driver-avatar">${ini}</div>
-        <div><div style="font-weight:600;font-size:.88rem">${d.full_name}</div><div style="font-size:.75rem;color:var(--gray-400)">${d.phone||'—'}</div></div>
+        <div><div style="font-weight:600;font-size:.88rem">${d.full_name}</div><div style="font-size:.75rem;color:var(--gray-400)">${sub}</div></div>
         <div class="radio-circle"><div class="radio-dot"></div></div>
       </div>`;
     }).join('');
-
-    // Pre-select from URL param
-    const params = new URLSearchParams(location.search);
-    const preDriver = params.get('driver');
-    if (preDriver) { const d = drivers.find(x=>x.id===preDriver); if(d) selectDriver(d); }
   }
   init();
 </script>
