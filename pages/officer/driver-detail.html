@@ -58,6 +58,20 @@
     /* Payment list */
     .payment-row { display:flex; justify-content:space-between; align-items:center; padding:.75rem 0; border-bottom:1px solid var(--gray-100); font-size:.85rem; }
     .payment-row:last-child { border-bottom:none; }
+
+    .ledger-wrap { overflow-x:auto; margin:0 -1.25rem; padding:0 1.25rem; }
+    .ledger-table { width:100%; border-collapse:collapse; font-size:.82rem; min-width:640px; }
+    .ledger-table th { text-align:left; font-size:.68rem; font-weight:700; color:var(--gray-400); text-transform:uppercase; letter-spacing:.05em; padding:.5rem .6rem; border-bottom:1px solid var(--gray-100); white-space:nowrap; }
+    .ledger-table td { padding:.7rem .6rem; border-bottom:1px solid var(--gray-100); vertical-align:middle; white-space:nowrap; }
+    .ledger-table tr:last-child td { border-bottom:none; }
+    .ledger-wk { color:var(--gray-400); font-weight:600; }
+    .ledger-paid-amt { font-weight:700; }
+    .ledger-delta { color:var(--danger); font-size:.75rem; margin-top:.1rem; }
+    .ledger-actions { display:flex; gap:.4rem; }
+    .ledger-btn { border:none; border-radius:6px; padding:.3rem .55rem; font-size:.72rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:.25rem; }
+    .ledger-btn.edit { background:var(--gray-100); color:var(--gray-700); }
+    .ledger-btn.del  { background:var(--danger-bg); color:#991b1b; }
+    .ledger-foot td { font-weight:700; border-bottom:none; padding-top:.85rem; }
     .payment-amount { font-weight:700; color:var(--gray-900); }
     .payment-meta   { font-size:.75rem; color:var(--gray-400); margin-top:.1rem; }
 
@@ -169,8 +183,8 @@
   <!-- Payment history -->
   <div class="detail-card" id="paymentsCard">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">
-      <div class="detail-card-title" style="margin-bottom:0">Payment History</div>
-      <a id="recordPayLink" href="#" class="btn btn-primary" style="font-size:.72rem;padding:.35rem .75rem">+ Record</a>
+      <div class="detail-card-title" style="margin-bottom:0">Weekly Payments</div>
+      <a id="recordPayLink" href="#" class="btn btn-primary" style="font-size:.72rem;padding:.35rem .75rem">+ Record Payment</a>
     </div>
     <div id="paymentList"><div class="skeleton" style="height:14px;margin-bottom:.75rem"></div></div>
   </div>
@@ -272,6 +286,37 @@
       else break;
     }
     return { missedStreak, missedWeeks };
+  }
+
+  // Builds one row per due week from hire_start_date through the current
+  // week (inclusive — unlike computeMissedWeeks, this includes the week
+  // that's currently in progress, so the RO can see today's status
+  // immediately rather than waiting for the week to fully end).
+  function buildWeeklyLedger(assignment, payments) {
+    if (!assignment?.hire_start_date || !assignment.weekly_payment) return [];
+    const start = new Date(assignment.hire_start_date); start.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const msPerWeek = 7*24*60*60*1000;
+    const weekly = parseFloat(assignment.weekly_payment);
+
+    const weeklyPayments = (payments||[]).filter(p => p.payment_method !== 'deposit' && p.week_starting);
+    const paidByWeek = new Map();
+    const recordByWeek = new Map();
+    weeklyPayments.forEach(p => {
+      recordByWeek.set(p.week_starting, p);
+      if (p.status === 'paid') paidByWeek.set(p.week_starting, (paidByWeek.get(p.week_starting)||0) + parseFloat(p.amount||0));
+    });
+
+    const weeks = [];
+    let wk = 1;
+    for (let cursor = new Date(start); cursor <= today; cursor = new Date(cursor.getTime()+msPerWeek), wk++) {
+      const weekStart = cursor.toISOString().split('T')[0];
+      const weekEnd = new Date(cursor.getTime() + 6*24*60*60*1000).toISOString().split('T')[0];
+      const paid = paidByWeek.get(weekStart) || 0;
+      const status = paid <= 0 ? 'missed' : (paid < weekly ? 'partial' : 'paid');
+      weeks.push({ wk, weekStart, weekEnd, due: weekly, paid, status, record: recordByWeek.get(weekStart) || null });
+    }
+    return weeks.reverse(); // most recent week first
   }
 
   async function init() {
@@ -513,27 +558,65 @@
         </div>
       </div>`;
 
-    // Payment history (most recent 10 of the full set already loaded above)
+    // Weekly payment ledger — one row per due week (from hire start through
+    // the current week), showing Paid/Missed/Partial even for weeks with no
+    // payment record at all, plus a deposit line and a Total footer.
     const payList = document.getElementById('paymentList');
-    if (!payments.length) {
-      payList.innerHTML = `<div class="empty-state">No payments recorded yet.</div>`;
+    const depositPayment = payments.find(p => p.payment_method === 'deposit');
+    const ledger = buildWeeklyLedger(assignment, payments);
+
+    if (!ledger.length) {
+      payList.innerHTML = `<div class="empty-state">No payment schedule yet — assign a vehicle with a start date first.</div>`;
     } else {
-      const recent = payments.slice(0,10);
+      const totalDue = ledger.reduce((s,w) => s + w.due, 0);
+      const totalPaidLedger = ledger.reduce((s,w) => s + w.paid, 0);
+      const statusBadge = { paid:'badge-green', partial:'badge-amber', missed:'badge-red' };
+      const statusLabel = { paid:'Paid', partial:'Partial', missed:'Missed' };
+      const fmt = d => new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+
       payList.innerHTML = `
-        <div style="background:var(--success-bg);border-radius:8px;padding:.75rem;margin-bottom:.875rem;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:.78rem;font-weight:600;color:#065f46">Total Paid</span>
-          <span style="font-family:var(--font-display);font-weight:700;color:#065f46">GHS ${totalPaid.toFixed(2)}</span>
-        </div>
-        ${recent.map(p => `<div class="payment-row">
-          <div>
-            <div class="payment-amount">GHS ${parseFloat(p.amount).toFixed(2)} ${p.payment_method==='deposit'?'<span class="badge badge-blue" style="margin-left:.3rem">Deposit</span>':''}</div>
-            <div class="payment-meta">Week of ${p.week_starting} · ${p.payment_method||'cash'}</div>
-          </div>
-          <span class="badge ${p.status==='paid'?'badge-green':'badge-amber'}">${p.status}</span>
-          <button class="edit-icon-btn" onclick='openPaymentEdit(${JSON.stringify(p)})' title="Edit payment">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-          </button>
-        </div>`).join('')}`;
+        ${depositPayment ? `
+        <div style="background:var(--brand-light);border-radius:8px;padding:.6rem .875rem;margin-bottom:.875rem;display:flex;justify-content:space-between;align-items:center;font-size:.8rem">
+          <span style="font-weight:600;color:var(--brand-dark)">Initial Deposit</span>
+          <span style="font-weight:700;color:var(--brand-dark)">GHS ${parseFloat(depositPayment.amount).toFixed(2)}
+            <button class="edit-icon-btn" style="margin-left:.4rem" onclick='openPaymentEdit(${JSON.stringify(depositPayment)})' title="Edit deposit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+            </button>
+          </span>
+        </div>` : ''}
+        <div class="ledger-wrap">
+        <table class="ledger-table">
+          <thead><tr>
+            <th>Wk</th><th>Week Start</th><th>Week End</th><th>Due</th><th>Paid</th><th>Status</th><th>Notes</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${ledger.map(w => `<tr>
+              <td class="ledger-wk">${w.wk}</td>
+              <td>${fmt(w.weekStart)}</td>
+              <td>${fmt(w.weekEnd)}</td>
+              <td>GHS ${w.due.toFixed(2)}</td>
+              <td>
+                <div class="ledger-paid-amt">GHS ${w.paid.toFixed(2)}</div>
+                ${w.paid < w.due ? `<div class="ledger-delta">-${(w.due - w.paid).toFixed(2)}</div>` : ''}
+              </td>
+              <td><span class="badge ${statusBadge[w.status]}">${statusLabel[w.status]}</span></td>
+              <td style="color:var(--gray-400);font-size:.78rem">${w.record?.notes || '—'}</td>
+              <td>
+                <div class="ledger-actions">
+                  <button class="ledger-btn edit" onclick='openWeekEdit(${JSON.stringify(w)})'>✏️ Edit</button>
+                  ${w.record ? `<button class="ledger-btn del" onclick="deleteWeekPayment('${w.record.id}')">🗑</button>` : ''}
+                </div>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot><tr class="ledger-foot">
+            <td colspan="3">Total</td>
+            <td>GHS ${totalDue.toFixed(2)}</td>
+            <td style="color:var(--success)">GHS ${totalPaidLedger.toFixed(2)}</td>
+            <td colspan="3"></td>
+          </tr></tfoot>
+        </table>
+        </div>`;
     }
   }
 
@@ -590,6 +673,30 @@
     document.getElementById('paymentErr').style.display = 'none';
     document.getElementById('paymentModal').classList.add('open');
   };
+
+  // Opens the same modal for a week row from the ledger table — if that
+  // week already has a payment record, edits it; if not (a "Missed" week
+  // with nothing recorded yet), this creates a new one on save instead.
+  window.openWeekEdit = (week) => {
+    if (week.record) { openPaymentEdit(week.record); return; }
+    editingPaymentId = null;
+    document.getElementById('paymentModalTitle').textContent = `Record Payment — Week ${week.wk}`;
+    document.getElementById('editAmount').value = week.due;
+    document.getElementById('editWeekStarting').value = week.weekStart;
+    document.getElementById('editStatus').value = 'paid';
+    document.getElementById('editNotes').value = '';
+    document.getElementById('paymentErr').style.display = 'none';
+    document.getElementById('paymentModal').classList.add('open');
+  };
+
+  window.deleteWeekPayment = async (paymentId) => {
+    if (!confirm('Delete this payment record? This cannot be undone.')) return;
+    const { error } = await db.from('payments').delete().eq('id', paymentId);
+    if (error) { toast('Failed to delete: ' + error.message, 'error'); return; }
+    toast('Payment deleted', 'success');
+    await init();
+  };
+
   window.closePaymentModal = (e) => { if (!e || e.target === document.getElementById('paymentModal')) document.getElementById('paymentModal').classList.remove('open'); };
 
   window.savePaymentEdit = async () => {
@@ -601,13 +708,16 @@
     const btn = document.getElementById('savePaymentBtn');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const { error } = await db.from('payments').update({
+      const fields = {
         amount, week_starting: weekStarting,
         status: document.getElementById('editStatus').value,
         notes: document.getElementById('editNotes').value.trim() || null,
-      }).eq('id', editingPaymentId);
+      };
+      const { error } = editingPaymentId
+        ? await db.from('payments').update(fields).eq('id', editingPaymentId)
+        : await db.from('payments').insert({ ...fields, driver_id: driverId, assignment_id: assignment?.id || null });
       if (error) throw error;
-      toast('Payment updated', 'success');
+      toast('Payment saved', 'success');
       closePaymentModal();
       await init();
     } catch(e) {
