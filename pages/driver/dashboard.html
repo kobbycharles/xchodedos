@@ -233,16 +233,22 @@
       dueWeeks.push(cursor.toISOString().split('T')[0]);
     }
 
-    const paidByWeek = new Map();
+    // Match by date-range offset from hire_start_date, not exact string
+    // equality — payments recorded under the old calendar-Monday scheme
+    // don't necessarily land exactly on this contract's week boundaries.
+    const paidByIndex = new Map();
     (payments||[]).forEach(p => {
       if (p.status !== 'paid' || p.payment_method === 'deposit' || !p.week_starting) return;
-      paidByWeek.set(p.week_starting, (paidByWeek.get(p.week_starting)||0) + parseFloat(p.amount||0));
+      const pDate = new Date(p.week_starting); pDate.setHours(0,0,0,0);
+      const idx = Math.floor((pDate - start) / msPerWeek);
+      if (idx < 0) return;
+      paidByIndex.set(idx, (paidByIndex.get(idx)||0) + parseFloat(p.amount||0));
     });
 
     let missedStreak = 0;
     const missedWeeks = [];
     for (let i = dueWeeks.length - 1; i >= 0; i--) {
-      const paid = paidByWeek.get(dueWeeks[i]) || 0;
+      const paid = paidByIndex.get(i) || 0;
       if (paid + 0.01 < weeklyPayment) { missedStreak++; missedWeeks.unshift(dueWeeks[i]); }
       else break;
     }

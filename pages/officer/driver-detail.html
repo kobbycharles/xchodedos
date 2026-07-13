@@ -272,16 +272,22 @@
       dueWeeks.push(cursor.toISOString().split('T')[0]);
     }
 
-    const paidByWeek = new Map();
+    // Match by date-range offset from hire_start_date, not exact string
+    // equality — payments recorded under the old calendar-Monday scheme
+    // don't necessarily land exactly on this contract's week boundaries.
+    const paidByIndex = new Map();
     (payments||[]).forEach(p => {
       if (p.status !== 'paid' || p.payment_method === 'deposit' || !p.week_starting) return;
-      paidByWeek.set(p.week_starting, (paidByWeek.get(p.week_starting)||0) + parseFloat(p.amount||0));
+      const pDate = new Date(p.week_starting); pDate.setHours(0,0,0,0);
+      const idx = Math.floor((pDate - start) / msPerWeek);
+      if (idx < 0) return;
+      paidByIndex.set(idx, (paidByIndex.get(idx)||0) + parseFloat(p.amount||0));
     });
 
     let missedStreak = 0;
     const missedWeeks = [];
     for (let i = dueWeeks.length - 1; i >= 0; i--) {
-      const paid = paidByWeek.get(dueWeeks[i]) || 0;
+      const paid = paidByIndex.get(i) || 0;
       if (paid + 0.01 < weeklyPayment) { missedStreak++; missedWeeks.unshift(dueWeeks[i]); }
       else break;
     }
@@ -299,22 +305,32 @@
     const msPerWeek = 7*24*60*60*1000;
     const weekly = parseFloat(assignment.weekly_payment);
 
+    // Bucket each payment by which week-slot it actually falls into (by date
+    // offset from hire_start_date), not by an exact string match on
+    // week_starting. Payments recorded before this ledger existed were
+    // stamped with the calendar Monday, which usually isn't the same date
+    // as hire_start_date + 7n — matching by range keeps those visible
+    // instead of showing them as "Missed" just because the stored date
+    // doesn't land exactly on this contract's week boundary.
     const weeklyPayments = (payments||[]).filter(p => p.payment_method !== 'deposit' && p.week_starting);
-    const paidByWeek = new Map();
-    const recordByWeek = new Map();
+    const paidByIndex = new Map();
+    const recordByIndex = new Map();
     weeklyPayments.forEach(p => {
-      recordByWeek.set(p.week_starting, p);
-      if (p.status === 'paid') paidByWeek.set(p.week_starting, (paidByWeek.get(p.week_starting)||0) + parseFloat(p.amount||0));
+      const pDate = new Date(p.week_starting); pDate.setHours(0,0,0,0);
+      const idx = Math.floor((pDate - start) / msPerWeek);
+      if (idx < 0) return; // payment dated before the contract even started — ignore
+      recordByIndex.set(idx, p);
+      if (p.status === 'paid') paidByIndex.set(idx, (paidByIndex.get(idx)||0) + parseFloat(p.amount||0));
     });
 
     const weeks = [];
-    let wk = 1;
-    for (let cursor = new Date(start); cursor <= today; cursor = new Date(cursor.getTime()+msPerWeek), wk++) {
+    let wk = 1, idx = 0;
+    for (let cursor = new Date(start); cursor <= today; cursor = new Date(cursor.getTime()+msPerWeek), wk++, idx++) {
       const weekStart = cursor.toISOString().split('T')[0];
       const weekEnd = new Date(cursor.getTime() + 6*24*60*60*1000).toISOString().split('T')[0];
-      const paid = paidByWeek.get(weekStart) || 0;
+      const paid = paidByIndex.get(idx) || 0;
       const status = paid <= 0 ? 'missed' : (paid < weekly ? 'partial' : 'paid');
-      weeks.push({ wk, weekStart, weekEnd, due: weekly, paid, status, record: recordByWeek.get(weekStart) || null });
+      weeks.push({ wk, weekStart, weekEnd, due: weekly, paid, status, record: recordByIndex.get(idx) || null });
     }
     return weeks.reverse(); // most recent week first
   }

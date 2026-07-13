@@ -256,15 +256,24 @@
       return;
     }
     const { data: payments } = await db.from('payments').select('week_starting, amount, status').eq('driver_id', driverId).eq('status','paid').neq('payment_method','deposit');
-    const paidWeeks = new Set((payments||[]).map(p => p.week_starting));
 
     const start = new Date(assignment.hire_start_date); start.setHours(0,0,0,0);
     const today = new Date(); today.setHours(0,0,0,0);
     const msPerWeek = 7*24*60*60*1000;
 
+    // Match by date-range offset from hire_start_date, not exact string
+    // equality — a payment recorded under the old calendar-Monday scheme
+    // won't necessarily land exactly on this contract's week boundary.
+    const paidIndexes = new Set((payments||[]).map(p => {
+      const pDate = new Date(p.week_starting); pDate.setHours(0,0,0,0);
+      return Math.floor((pDate - start) / msPerWeek);
+    }));
+
+    let idx = 0;
     let nextWeek = new Date(start);
-    while (paidWeeks.has(nextWeek.toISOString().split('T')[0]) && nextWeek <= today) {
+    while (paidIndexes.has(idx) && nextWeek <= today) {
       nextWeek = new Date(nextWeek.getTime() + msPerWeek);
+      idx++;
     }
     input.value = nextWeek.toISOString().split('T')[0];
   }
