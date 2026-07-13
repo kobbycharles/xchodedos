@@ -34,6 +34,15 @@
 
     .page-content { padding:1.25rem 1rem calc(var(--nav-h) + 1.25rem); max-width:540px; margin:0 auto; }
 
+    .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:1.25rem; }
+    .stat-card { background:#fff; border:1px solid var(--border); border-radius:var(--r-md); padding:1rem; box-shadow:var(--shadow-sm); }
+    .stat-card.brand { border-left:3px solid var(--brand); }
+    .stat-card.green { border-left:3px solid var(--success); }
+    .stat-card.amber { border-left:3px solid var(--warning); }
+    .stat-card.red   { border-left:3px solid var(--danger); }
+    .stat-value { font-family:var(--font-display); font-size:1.5rem; font-weight:700; color:var(--gray-900); line-height:1; margin-bottom:.25rem; }
+    .stat-label { font-size:.72rem; font-weight:500; color:var(--gray-400); text-transform:uppercase; letter-spacing:.05em; }
+
     .filter-tabs { display:flex; gap:.5rem; margin-bottom:1rem; overflow-x:auto; scrollbar-width:none; }
     .filter-tabs::-webkit-scrollbar { display:none; }
     .filter-tab { padding:.4rem .875rem; border-radius:var(--r-full); font-size:.78rem; font-weight:600; border:1.5px solid var(--border); background:#fff; color:var(--gray-500); cursor:pointer; white-space:nowrap; }
@@ -106,6 +115,8 @@
 </header>
 
 <main class="page-content">
+  <div class="stat-grid" id="fleetSummary"></div>
+
   <div class="filter-tabs">
     <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
     <button class="filter-tab" onclick="setFilter('available',this)">Available</button>
@@ -241,6 +252,23 @@
     }
   };
 
+  function renderFleetSummary() {
+    const el = document.getElementById('fleetSummary');
+    const total = allCars.length;
+    const available = allCars.filter(c => c.status === 'available').length;
+    const assigned = allCars.filter(c => c.status === 'assigned').length;
+    const needsAttention = allCars.filter(c => {
+      const m = c._maintenance || {};
+      return Object.values(m).some(s => s.status === 'due_soon' || s.status === 'overdue');
+    }).length;
+
+    el.innerHTML = `
+      <div class="stat-card brand"><div class="stat-value">${total}</div><div class="stat-label">Total Fleet</div></div>
+      <div class="stat-card green"><div class="stat-value">${available}</div><div class="stat-label">Available</div></div>
+      <div class="stat-card amber"><div class="stat-value">${assigned}</div><div class="stat-label">Assigned</div></div>
+      <div class="stat-card ${needsAttention ? 'red' : 'green'}"><div class="stat-value">${needsAttention}</div><div class="stat-label">Needs Attention</div></div>`;
+  }
+
   async function loadCars() {
     const { data, error } = await db.from('cars').select('*, driver_assignments(profiles!driver_assignments_driver_id_fkey(full_name))').eq('driver_assignments.is_active', true).neq('status','retired').order('created_at', { ascending:false });
     if (error) { console.error(error); toast('Failed to load fleet.', 'error'); allCars = []; render(); return; }
@@ -252,6 +280,7 @@
       (logs||[]).forEach(l => { (logsByCar[l.car_id] ||= []).push(l); });
       allCars.forEach(c => { c._maintenance = getCarMaintenanceSummary(logsByCar[c.id]||[]); });
     }
+    renderFleetSummary();
     render();
   }
 
