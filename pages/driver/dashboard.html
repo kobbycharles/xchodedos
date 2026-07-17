@@ -220,11 +220,20 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // Weeks run in 7-day cycles anchored to hire_start_date. A week only
-  // counts as "due" once it has fully elapsed. A week is "missed" if the
-  // total paid against that week_starting date is less than what's owed.
+  // Snaps any date back to the Monday of its calendar week.
+  function getMondayOf(date) {
+    const d = new Date(date); d.setHours(0,0,0,0);
+    const day = d.getDay(); // 0=Sun..6=Sat
+    const diff = day === 0 ? -6 : 1 - day;
+    return new Date(d.getTime() + diff*24*60*60*1000);
+  }
+
+  // Weeks are always calendar Monday–Sunday, regardless of what day the
+  // contract actually started on. A week only counts as "due" once it has
+  // fully elapsed. A week is "missed" if the total paid against it is less
+  // than what's owed.
   function computeMissedWeeks(hireStart, weeklyPayment, payments) {
-    const start = new Date(hireStart); start.setHours(0,0,0,0);
+    const start = getMondayOf(hireStart);
     const today = new Date(); today.setHours(0,0,0,0);
     const msPerWeek = 7*24*60*60*1000;
 
@@ -233,9 +242,9 @@
       dueWeeks.push(cursor.toISOString().split('T')[0]);
     }
 
-    // Match by date-range offset from hire_start_date, not exact string
-    // equality — payments recorded under the old calendar-Monday scheme
-    // don't necessarily land exactly on this contract's week boundaries.
+    // Match by date-range offset from the Monday-anchored start, not exact
+    // string equality — tolerant of payments stamped with any date that
+    // falls within the correct Mon–Sun window.
     const paidByIndex = new Map();
     (payments||[]).forEach(p => {
       if (p.status !== 'paid' || p.payment_method === 'deposit' || !p.week_starting) return;

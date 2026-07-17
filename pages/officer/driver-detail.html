@@ -259,11 +259,21 @@
     el.className='toast '+type; el.textContent=msg; c.appendChild(el); setTimeout(()=>el.remove(),3000);
   }
 
-  // Weeks run in 7-day cycles anchored to hire_start_date. A week only
-  // counts as "due" once it has fully elapsed. A week is "missed" if the
-  // total paid against that week_starting date is less than what's owed.
+  // Snaps any date back to the Monday of its calendar week.
+  function getMondayOf(date) {
+    const d = new Date(date); d.setHours(0,0,0,0);
+    const day = d.getDay(); // 0=Sun..6=Sat
+    const diff = day === 0 ? -6 : 1 - day;
+    return new Date(d.getTime() + diff*24*60*60*1000);
+  }
+
+  // Weeks are always calendar Monday–Sunday, regardless of what day the
+  // contract actually started on — week 1 is the Mon–Sun block containing
+  // hire_start_date, even if that means it's a "short" first week. A week
+  // only counts as "due" once it has fully elapsed. A week is "missed" if
+  // the total paid against it is less than what's owed.
   function computeMissedWeeks(hireStart, weeklyPayment, payments) {
-    const start = new Date(hireStart); start.setHours(0,0,0,0);
+    const start = getMondayOf(hireStart);
     const today = new Date(); today.setHours(0,0,0,0);
     const msPerWeek = 7*24*60*60*1000;
 
@@ -272,9 +282,9 @@
       dueWeeks.push(cursor.toISOString().split('T')[0]);
     }
 
-    // Match by date-range offset from hire_start_date, not exact string
-    // equality — payments recorded under the old calendar-Monday scheme
-    // don't necessarily land exactly on this contract's week boundaries.
+    // Match by date-range offset from the Monday-anchored start, not exact
+    // string equality — tolerant of payments stamped with any date that
+    // falls within the correct Mon–Sun window.
     const paidByIndex = new Map();
     (payments||[]).forEach(p => {
       if (p.status !== 'paid' || p.payment_method === 'deposit' || !p.week_starting) return;
@@ -294,31 +304,28 @@
     return { missedStreak, missedWeeks };
   }
 
-  // Builds one row per due week from hire_start_date through the current
-  // week (inclusive — unlike computeMissedWeeks, this includes the week
-  // that's currently in progress, so the RO can see today's status
-  // immediately rather than waiting for the week to fully end).
+  // Builds one row per calendar week (Monday–Sunday) from the week
+  // containing hire_start_date through the current week (inclusive —
+  // unlike computeMissedWeeks, this includes the week that's currently in
+  // progress, so the RO can see today's status immediately).
   function buildWeeklyLedger(assignment, payments) {
     if (!assignment?.hire_start_date || !assignment.weekly_payment) return [];
-    const start = new Date(assignment.hire_start_date); start.setHours(0,0,0,0);
+    const start = getMondayOf(assignment.hire_start_date);
     const today = new Date(); today.setHours(0,0,0,0);
     const msPerWeek = 7*24*60*60*1000;
     const weekly = parseFloat(assignment.weekly_payment);
 
-    // Bucket each payment by which week-slot it actually falls into (by date
-    // offset from hire_start_date), not by an exact string match on
-    // week_starting. Payments recorded before this ledger existed were
-    // stamped with the calendar Monday, which usually isn't the same date
-    // as hire_start_date + 7n — matching by range keeps those visible
-    // instead of showing them as "Missed" just because the stored date
-    // doesn't land exactly on this contract's week boundary.
+    // Bucket each payment by which Mon–Sun week-slot it actually falls
+    // into (by date offset from the Monday-anchored start), not by an
+    // exact string match on week_starting — tolerant of payments stamped
+    // with any date inside the correct window.
     const weeklyPayments = (payments||[]).filter(p => p.payment_method !== 'deposit' && p.week_starting);
     const paidByIndex = new Map();
     const recordByIndex = new Map();
     weeklyPayments.forEach(p => {
       const pDate = new Date(p.week_starting); pDate.setHours(0,0,0,0);
       const idx = Math.floor((pDate - start) / msPerWeek);
-      if (idx < 0) return; // payment dated before the contract even started — ignore
+      if (idx < 0) return; // payment dated before the contract's first week — ignore
       recordByIndex.set(idx, p);
       if (p.status === 'paid') paidByIndex.set(idx, (paidByIndex.get(idx)||0) + parseFloat(p.amount||0));
     });

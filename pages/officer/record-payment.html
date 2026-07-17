@@ -248,6 +248,13 @@
   // the contract's start date and existing payment records) instead of
   // blindly using "this week's Monday" — which might already be paid, or
   // might not even align with this driver's actual weekly cycle.
+  function getMondayOf(date) {
+    const d = new Date(date); d.setHours(0,0,0,0);
+    const day = d.getDay(); // 0=Sun..6=Sat
+    const diff = day === 0 ? -6 : 1 - day;
+    return new Date(d.getTime() + diff*24*60*60*1000);
+  }
+
   async function setNextUnpaidWeek(driverId, assignment) {
     const input = document.getElementById('weekStarting');
     if (!assignment?.hire_start_date || !assignment.weekly_payment) {
@@ -257,13 +264,13 @@
     }
     const { data: payments } = await db.from('payments').select('week_starting, amount, status').eq('driver_id', driverId).eq('status','paid').neq('payment_method','deposit');
 
-    const start = new Date(assignment.hire_start_date); start.setHours(0,0,0,0);
+    const start = getMondayOf(assignment.hire_start_date);
     const today = new Date(); today.setHours(0,0,0,0);
     const msPerWeek = 7*24*60*60*1000;
 
-    // Match by date-range offset from hire_start_date, not exact string
-    // equality — a payment recorded under the old calendar-Monday scheme
-    // won't necessarily land exactly on this contract's week boundary.
+    // Match by date-range offset from the Monday-anchored start, not exact
+    // string equality — tolerant of payments stamped with any date inside
+    // the correct Mon–Sun window.
     const paidIndexes = new Set((payments||[]).map(p => {
       const pDate = new Date(p.week_starting); pDate.setHours(0,0,0,0);
       return Math.floor((pDate - start) / msPerWeek);
