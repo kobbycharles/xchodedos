@@ -331,7 +331,7 @@
     if (!total || !weekly || !start) { preview.style.display='none'; return; }
 
     const dep = selectedDriver ? (driverDeposits[selectedDriver.id] || {}) : {};
-    const deposit   = dep.deposit_paid ? (dep.security_deposit || 0) : 0;
+    const deposit   = dep.totalPaid || 0;
     const remaining = Math.max(total - deposit, 0);
     const weeks     = weekly > 0 ? Math.ceil(remaining / weekly) : 0;
     const endDate   = new Date(start);
@@ -357,7 +357,7 @@
     if (!start) { showErr('err3','Please select a hire start date.'); return; }
 
     const dep = selectedDriver ? (driverDeposits[selectedDriver.id] || {}) : {};
-    const deposit   = dep.deposit_paid ? (dep.security_deposit || 0) : 0;
+    const deposit   = dep.totalPaid || 0;
     const remaining = Math.max(total - deposit, 0);
     const weeks     = weekly > 0 ? Math.ceil(remaining / weekly) : 0;
     const endDate   = new Date(start);
@@ -391,7 +391,7 @@
       const notes   = document.getElementById('hireNotes').value.trim() || null;
 
       const dep = driverDeposits[selectedDriver.id] || {};
-      const deposit   = dep.deposit_paid ? (dep.security_deposit || 0) : 0;
+      const deposit   = dep.totalPaid || 0;
       const remaining = Math.max(total - deposit, 0);
       const weeks     = weekly > 0 ? Math.ceil(remaining / weekly) : 0;
       const endDateObj = new Date(start);
@@ -543,8 +543,11 @@
     // Load deposit info for these candidates (used to compute contract end date + initial payment)
     const candidateIds = (leads||[]).map(d=>d.id);
     if (candidateIds.length) {
-      const { data: leadRows } = await db.from('leads').select('profile_id, security_deposit, deposit_paid').in('profile_id', candidateIds);
-      (leadRows||[]).forEach(l => { driverDeposits[l.profile_id] = { security_deposit: parseFloat(l.security_deposit||0), deposit_paid: !!l.deposit_paid }; });
+      const { data: depPayments } = await db.from('payments').select('driver_id, amount').in('driver_id', candidateIds).eq('payment_method', 'deposit').eq('status', 'paid');
+      (depPayments||[]).forEach(p => {
+        driverDeposits[p.driver_id] = driverDeposits[p.driver_id] || { totalPaid: 0 };
+        driverDeposits[p.driver_id].totalPaid += parseFloat(p.amount||0);
+      });
     }
 
     // Pre-select from URL param
@@ -556,8 +559,8 @@
         const { data: pd } = await db.from('profiles').select('id, full_name, phone, email').eq('id', preDriver).single();
         if (pd) allDrivers.unshift(pd);
         if (!driverDeposits[preDriver]) {
-          const { data: pl } = await db.from('leads').select('profile_id, security_deposit, deposit_paid').eq('profile_id', preDriver).maybeSingle();
-          if (pl) driverDeposits[pl.profile_id] = { security_deposit: parseFloat(pl.security_deposit||0), deposit_paid: !!pl.deposit_paid };
+          const { data: pDp } = await db.from('payments').select('amount').eq('driver_id', preDriver).eq('payment_method','deposit').eq('status','paid');
+          driverDeposits[preDriver] = { totalPaid: (pDp||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0) };
         }
       }
       selectedDriver = allDrivers.find(d=>d.id===preDriver)||null;

@@ -155,7 +155,7 @@
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  let officerProfile = null, lead = null, leadProfile = null, guarantors = [];
+  let officerProfile = null, lead = null, leadProfile = null, guarantors = [], depositPayments = [];
   let editDetailsOpen = false;
 
   function escAttr(s) {
@@ -309,21 +309,46 @@
       <!-- Security deposit -->
       <div class="action-card">
         <div class="action-card-title">💰 Security Deposit</div>
-        <div class="deposit-status">
-          <div>
-            <div class="deposit-amount">GHS ${parseFloat(lead.security_deposit||0).toFixed(2)}</div>
-            <div style="font-size:.75rem;color:var(--gray-400)">Required deposit amount</div>
+        ${(() => {
+          const required = parseFloat(lead.security_deposit||0);
+          const totalPaid = depositPayments.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+          const remaining = Math.max(required - totalPaid, 0);
+          const pct = required > 0 ? Math.min(100, Math.round((totalPaid/required)*100)) : 0;
+          return `
+          <div class="deposit-status">
+            <div>
+              <div class="deposit-amount">GHS ${totalPaid.toFixed(2)} <span style="font-size:.8rem;color:var(--gray-400);font-weight:500">/ ${required.toFixed(2)}</span></div>
+              <div style="font-size:.75rem;color:var(--gray-400)">${lead.deposit_paid ? 'Fully paid' : `GHS ${remaining.toFixed(2)} remaining`}</div>
+            </div>
+            <span class="badge ${lead.deposit_paid?'badge-green':(totalPaid>0?'badge-amber':'badge-gray')}">${lead.deposit_paid?'Paid':(totalPaid>0?'Partial':'Pending')}</span>
           </div>
-          <span class="badge ${lead.deposit_paid?'badge-green':'badge-amber'}">${lead.deposit_paid?'Paid':'Pending'}</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Deposit Amount (GHS)</label>
-          <input class="form-input" id="depositAmt" type="number" inputmode="decimal" value="${lead.security_deposit||0}"/>
-        </div>
-        <div class="error-box" id="depositErr"></div>
-        ${!lead.deposit_paid
-          ? `<button class="btn btn-success btn-full" id="markPaidBtn" onclick="markDepositPaid()"><span id="markPaidLabel">✓ Mark Deposit as Paid</span><div class="spinner" id="markPaidSpinner" style="display:none"></div></button>`
-          : `<button class="btn btn-outline btn-full" onclick="updateDepositAmount()">Update Amount</button>`}
+          <div style="height:8px;border-radius:99px;background:var(--gray-100);overflow:hidden;margin-bottom:.875rem">
+            <div style="height:100%;width:${pct}%;background:var(--brand);border-radius:99px"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Required Deposit Amount (GHS)</label>
+            <input class="form-input" id="depositAmt" type="number" inputmode="decimal" value="${required}"/>
+          </div>
+          <button class="btn btn-outline btn-full" style="margin-bottom:.875rem" onclick="updateDepositAmount()">Update Required Amount</button>
+          ${!lead.deposit_paid ? `
+          <div class="form-group">
+            <label class="form-label">Record Installment (GHS)</label>
+            <input class="form-input" id="depositInstallment" type="number" inputmode="decimal" placeholder="e.g. 100.00"/>
+          </div>
+          <div class="error-box" id="depositErr"></div>
+          <button class="btn btn-success btn-full" id="addDepositBtn" onclick="addDepositInstallment()">
+            <span id="addDepositLabel">+ Record Payment</span><div class="spinner" id="addDepositSpinner" style="display:none"></div>
+          </button>` : ''}
+          ${depositPayments.length ? `
+          <div style="margin-top:1rem">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-bottom:.5rem">Payment History</div>
+            ${depositPayments.map(p => `
+              <div style="display:flex;justify-content:space-between;padding:.5rem 0;border-top:1px solid var(--gray-100);font-size:.82rem">
+                <span>${p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—'}</span>
+                <span style="font-weight:600">GHS ${parseFloat(p.amount).toFixed(2)}</span>
+              </div>`).join('')}
+          </div>` : ''}`;
+        })()}
       </div>
 
       <!-- Final decision -->
@@ -439,20 +464,50 @@
     await reload();
   };
 
-  window.markDepositPaid = async () => {
-    document.getElementById('markPaidLabel').style.display='none';
-    document.getElementById('markPaidSpinner').style.display='block';
-    document.getElementById('markPaidBtn').disabled=true;
+  window.addDepositInstallment = async () => {
+    const errEl = document.getElementById('depositErr');
+    errEl.classList.remove('show');
+    const amt = parseFloat(document.getElementById('depositInstallment').value);
+    if (!amt || amt <= 0) { errEl.textContent = 'Enter a valid amount.'; errEl.classList.add('show'); return; }
 
-    const updates = { deposit_paid:true, deposit_paid_at:new Date().toISOString() };
-    if (lead.status === 'guarantors_pending' || lead.status === 'deposit_pending') updates.status = 'deposit_pending';
+    document.getElementById('addDepositLabel').style.display='none';
+    document.getElementById('addDepositSpinner').style.display='block';
+    document.getElementById('addDepositBtn').disabled=true;
 
-    const { error } = await db.from('leads').update(updates).eq('id', lead.id);
-    if (error) { toast('Failed to update','error'); }
-    else { toast('Deposit marked as paid','success'); await reload(); }
+    const { error: payErr } = await db.from('payments').insert({
+      driver_id: leadProfile.id,
+      amount: amt,
+      week_starting: new Date().toISOString().split('T')[0],
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      payment_method: 'deposit',
+      recorded_by: officerProfile.id,
+      notes: 'Deposit installment',
+    });
 
-    document.getElementById('markPaidLabel').style.display='';
-    document.getElementById('markPaidSpinner').style.display='none';
+    if (payErr) {
+      errEl.textContent = payErr.message; errEl.classList.add('show');
+      document.getElementById('addDepositLabel').style.display='';
+      document.getElementById('addDepositSpinner').style.display='none';
+      document.getElementById('addDepositBtn').disabled=false;
+      return;
+    }
+
+    // Recompute total paid and auto-flip deposit_paid once target is reached
+    const { data: allDp } = await db.from('payments').select('amount').eq('driver_id', leadProfile.id).eq('payment_method','deposit');
+    const totalPaid = (allDp||[]).reduce((s,p) => s + parseFloat(p.amount||0), 0);
+    const required = parseFloat(lead.security_deposit||0);
+    const nowFullyPaid = required > 0 && totalPaid >= required;
+
+    const updates = { deposit_paid: nowFullyPaid };
+    if (nowFullyPaid) {
+      updates.deposit_paid_at = new Date().toISOString();
+      if (lead.status === 'guarantors_pending' || lead.status === 'deposit_pending') updates.status = 'deposit_pending';
+    }
+    await db.from('leads').update(updates).eq('id', lead.id);
+
+    toast(nowFullyPaid ? 'Deposit fully paid ✓' : 'Installment recorded', 'success');
+    await reload();
   };
 
   window.updateDepositAmount = async () => {
@@ -557,6 +612,8 @@
     lead = l;
     const { data: g } = await db.from('guarantors').select('*').eq('lead_id', lead.id);
     guarantors = g || [];
+    const { data: dp } = await db.from('payments').select('*').eq('driver_id', leadProfile.id).eq('payment_method', 'deposit').order('paid_at', { ascending:false });
+    depositPayments = dp || [];
     renderContent();
   }
 
@@ -585,6 +642,9 @@
 
     const { data: g } = await db.from('guarantors').select('*').eq('lead_id', lead.id);
     guarantors = g || [];
+
+    const { data: dp } = await db.from('payments').select('*').eq('driver_id', leadProfile.id).eq('payment_method', 'deposit').order('paid_at', { ascending:false });
+    depositPayments = dp || [];
 
     renderContent();
   }
