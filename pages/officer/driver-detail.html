@@ -248,7 +248,7 @@
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  let driver = null, driverId = null, assignment = null, editDetailsOpen = false;
+  let driver = null, driverId = null, assignment = null, editDetailsOpen = false, leadRow = null;
 
   function escAttr(s) {
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -367,17 +367,23 @@
     document.getElementById('recordPayLink').href = `/pages/officer/record-payment.html?driver=${driverId}`;
 
     // Lead application details (from onboarding, before they became a driver)
-    const { data: leadRow } = await db.from('leads').select('*, guarantors(*)').eq('profile_id', driverId).order('created_at', { ascending:false }).limit(1).maybeSingle();
+    const { data: leadRowFetched } = await db.from('leads').select('*, guarantors(*)').eq('profile_id', driverId).order('created_at', { ascending:false }).limit(1).maybeSingle();
+    leadRow = leadRowFetched;
     const leadSection = document.getElementById('leadInfoSection');
     if (leadRow) {
       const fmtD = d => d ? new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
       const testBadge = (passed) => passed===true ? '<span class="badge badge-green">Passed</span>' : passed===false ? '<span class="badge badge-red">Failed</span>' : '<span class="badge badge-gray">—</span>';
+      const { data: depositPayments } = await db.from('payments').select('*').eq('driver_id', driverId).eq('payment_method', 'deposit').order('paid_at', { ascending:false });
+      const depPayments = depositPayments || [];
+      const required = parseFloat(leadRow.security_deposit||0);
+      const totalDepPaid = depPayments.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+      const remaining = Math.max(required - totalDepPaid, 0);
+      const pct = required > 0 ? Math.min(100, Math.round((totalDepPaid/required)*100)) : 0;
       leadSection.innerHTML = `
         <div class="detail-card">
           <div class="detail-card-title">Lead Application</div>
           <div class="detail-row"><span class="detail-key">Drive Test</span><span class="detail-val">${fmtD(leadRow.drive_test_date)} · ${leadRow.drive_test_score ?? '—'} ${testBadge(leadRow.drive_test_passed)}</span></div>
           <div class="detail-row"><span class="detail-key">Knowledge Test</span><span class="detail-val">${fmtD(leadRow.knowledge_test_date)} · ${leadRow.knowledge_test_score ?? '—'} ${testBadge(leadRow.knowledge_test_passed)}</span></div>
-          <div class="detail-row"><span class="detail-key">Security Deposit</span><span class="detail-val">GHS ${leadRow.security_deposit ?? 0} ${leadRow.deposit_paid ? '<span class="badge badge-green">Paid</span>' : '<span class="badge badge-amber">Unpaid</span>'}</span></div>
           ${leadRow.notes ? `<div class="detail-row"><span class="detail-key">Notes</span><span class="detail-val">${leadRow.notes}</span></div>` : ''}
           ${(leadRow.guarantors||[]).map((g,i) => `
             <div style="margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--gray-100)">
@@ -388,6 +394,33 @@
               ${g.relationship ? `<div class="detail-row"><span class="detail-key">Relationship</span><span class="detail-val">${g.relationship}</span></div>` : ''}
               ${g.address ? `<div class="detail-row"><span class="detail-key">Address</span><span class="detail-val">${g.address}</span></div>` : ''}
             </div>`).join('')}
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">💰 Security Deposit</div>
+          <div class="detail-row">
+            <span class="detail-key">Progress</span>
+            <span class="detail-val">GHS ${totalDepPaid.toFixed(2)} / ${required.toFixed(2)} ${leadRow.deposit_paid ? '<span class="badge badge-green">Paid</span>' : (totalDepPaid>0 ? '<span class="badge badge-amber">Partial</span>' : '<span class="badge badge-gray">Pending</span>')}</span>
+          </div>
+          <div style="height:8px;border-radius:99px;background:var(--gray-100);overflow:hidden;margin:.5rem 0 .875rem">
+            <div style="height:100%;width:${pct}%;background:var(--brand);border-radius:99px"></div>
+          </div>
+          ${!leadRow.deposit_paid ? `
+          <div class="form-group">
+            <label class="form-label">Record Installment (GHS)</label>
+            <input class="form-input" id="depositInstallment" placeholder="e.g. 100.00" type="number" inputmode="decimal"/>
+          </div>
+          <div class="error-box" id="depositErr"></div>
+          <button class="btn btn-primary" style="width:100%" onclick="addDepositInstallment()">+ Record Payment</button>
+          ` : `<p style="font-size:.78rem;color:var(--gray-500)">Deposit fully paid — GHS ${remaining.toFixed(2)} remaining.</p>`}
+          ${depPayments.length ? `
+          <div style="margin-top:1rem">
+            <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-bottom:.5rem">Payment History</div>
+            ${depPayments.map(p => `
+              <div style="display:flex;justify-content:space-between;padding:.4rem 0;border-top:1px solid var(--gray-100);font-size:.8rem">
+                <span>${p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—'}</span>
+                <span style="font-weight:600">GHS ${parseFloat(p.amount).toFixed(2)}</span>
+              </div>`).join('')}
+          </div>` : ''}
         </div>`;
     } else {
       leadSection.innerHTML = '';
@@ -585,7 +618,8 @@
     // the current week), showing Paid/Missed/Partial even for weeks with no
     // payment record at all, plus a deposit line and a Total footer.
     const payList = document.getElementById('paymentList');
-    const depositPayment = payments.find(p => p.payment_method === 'deposit');
+    const depositPaymentsInLedger = payments.filter(p => p.payment_method === 'deposit');
+    const totalDeposit = depositPaymentsInLedger.reduce((s,p) => s + parseFloat(p.amount||0), 0);
     const ledger = buildWeeklyLedger(assignment, payments);
 
     if (!ledger.length) {
@@ -598,14 +632,10 @@
       const fmt = d => new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 
       payList.innerHTML = `
-        ${depositPayment ? `
+        ${depositPaymentsInLedger.length ? `
         <div style="background:var(--brand-light);border-radius:8px;padding:.6rem .875rem;margin-bottom:.875rem;display:flex;justify-content:space-between;align-items:center;font-size:.8rem">
-          <span style="font-weight:600;color:var(--brand-dark)">Initial Deposit</span>
-          <span style="font-weight:700;color:var(--brand-dark)">GHS ${parseFloat(depositPayment.amount).toFixed(2)}
-            <button class="edit-icon-btn" style="margin-left:.4rem" onclick='openPaymentEdit(${JSON.stringify(depositPayment)})' title="Edit deposit">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-            </button>
-          </span>
+          <span style="font-weight:600;color:var(--brand-dark)">Deposit (${depositPaymentsInLedger.length} payment${depositPaymentsInLedger.length>1?'s':''})</span>
+          <span style="font-weight:700;color:var(--brand-dark)">GHS ${totalDeposit.toFixed(2)}</span>
         </div>` : ''}
         <div class="ledger-wrap">
         <table class="ledger-table">
@@ -748,6 +778,40 @@
     } finally {
       btn.disabled = false; btn.textContent = 'Save';
     }
+  };
+
+  window.addDepositInstallment = async () => {
+    const errEl = document.getElementById('depositErr');
+    errEl.style.display = 'none';
+    const amt = parseFloat(document.getElementById('depositInstallment').value);
+    if (!amt || amt <= 0) { errEl.textContent = 'Enter a valid amount.'; errEl.style.display = 'block'; return; }
+
+    const { error: payErr } = await db.from('payments').insert({
+      driver_id: driverId,
+      amount: amt,
+      week_starting: new Date().toISOString().split('T')[0],
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      payment_method: 'deposit',
+      notes: 'Deposit installment',
+    });
+    if (payErr) { errEl.textContent = payErr.message; errEl.style.display = 'block'; return; }
+
+    // Recompute total and auto-flip deposit_paid on the linked lead record once target is reached
+    if (leadRow) {
+      const { data: allDp } = await db.from('payments').select('amount').eq('driver_id', driverId).eq('payment_method','deposit');
+      const totalPaid = (allDp||[]).reduce((s,p) => s + parseFloat(p.amount||0), 0);
+      const required = parseFloat(leadRow.security_deposit||0);
+      const nowFullyPaid = required > 0 && totalPaid >= required;
+      if (nowFullyPaid !== leadRow.deposit_paid) {
+        const updates = { deposit_paid: nowFullyPaid };
+        if (nowFullyPaid) updates.deposit_paid_at = new Date().toISOString();
+        await db.from('leads').update(updates).eq('id', leadRow.id);
+      }
+    }
+
+    toast('Deposit payment recorded', 'success');
+    init();
   };
 
   window.copyCred = async (text, btn) => {
