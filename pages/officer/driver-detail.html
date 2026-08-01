@@ -379,6 +379,16 @@
       const totalDepPaid = depPayments.reduce((s,p) => s + parseFloat(p.amount||0), 0);
       const remaining = Math.max(required - totalDepPaid, 0);
       const pct = required > 0 ? Math.min(100, Math.round((totalDepPaid/required)*100)) : 0;
+      const actuallyFullyPaid = required > 0 && totalDepPaid >= required;
+      // Self-heal one direction only: if sums now meet the target but the flag
+      // hasn't caught up, flip it to Paid. We deliberately never auto-flip an
+      // existing Paid flag back to unpaid — it may represent money collected
+      // before installment logging existed, which a data-repair script should
+      // backfill rather than this page silently undoing.
+      if (actuallyFullyPaid && !leadRow.deposit_paid) {
+        db.from('leads').update({ deposit_paid: true, deposit_paid_at: new Date().toISOString() }).eq('id', leadRow.id).then(()=>{});
+        leadRow.deposit_paid = true;
+      }
       leadSection.innerHTML = `
         <div class="detail-card">
           <div class="detail-card-title">Lead Application</div>
@@ -399,18 +409,19 @@
           <div class="detail-card-title">💰 Security Deposit</div>
           <div class="detail-row">
             <span class="detail-key">Progress</span>
-            <span class="detail-val">GHS ${totalDepPaid.toFixed(2)} / ${required.toFixed(2)} ${leadRow.deposit_paid ? '<span class="badge badge-green">Paid</span>' : (totalDepPaid>0 ? '<span class="badge badge-amber">Partial</span>' : '<span class="badge badge-gray">Pending</span>')}</span>
+            <span class="detail-val">GHS ${totalDepPaid.toFixed(2)} / ${required.toFixed(2)} ${actuallyFullyPaid ? '<span class="badge badge-green">Paid</span>' : (totalDepPaid>0 ? '<span class="badge badge-amber">Partial</span>' : '<span class="badge badge-gray">Pending</span>')}</span>
           </div>
           <div style="height:8px;border-radius:99px;background:var(--gray-100);overflow:hidden;margin:.5rem 0 .875rem">
             <div style="height:100%;width:${pct}%;background:var(--brand);border-radius:99px"></div>
           </div>
-          ${!leadRow.deposit_paid ? `
+          ${!actuallyFullyPaid ? `
           <div class="form-group">
             <label class="form-label">Record Installment (GHS)</label>
             <input class="form-input" id="depositInstallment" placeholder="e.g. 100.00" type="number" inputmode="decimal"/>
           </div>
           <div class="error-box" id="depositErr"></div>
           <button class="btn btn-primary" style="width:100%" onclick="addDepositInstallment()">+ Record Payment</button>
+          ${(leadRow.deposit_paid && !actuallyFullyPaid) ? `<p style="font-size:.72rem;color:#92400e;margin-top:.5rem">⚠️ This was previously marked "Paid" but only GHS ${totalDepPaid.toFixed(2)} is logged. Record the missing amount, or ask an admin to backfill the difference if it was collected before logging started.</p>` : ''}
           ` : `<p style="font-size:.78rem;color:var(--gray-500)">Deposit fully paid — GHS ${remaining.toFixed(2)} remaining.</p>`}
           ${depPayments.length ? `
           <div style="margin-top:1rem">
