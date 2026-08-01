@@ -90,6 +90,14 @@
     .photo-thumb img { width:100%; height:100%; object-fit:cover; }
     .photo-thumb .remove-photo { position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:.75rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 
+    .photo-slot { position:relative; aspect-ratio:1; border-radius:var(--r-sm); overflow:hidden; border:1.5px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.3rem; cursor:pointer; background:var(--gray-50); }
+    .photo-slot.filled { border-style:solid; border-color:var(--brand); padding:0; }
+    .photo-slot img { width:100%; height:100%; object-fit:cover; }
+    .photo-slot-label { font-size:.72rem; font-weight:600; color:var(--gray-500); }
+    .photo-slot.filled .photo-slot-label { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.55); color:#fff; padding:.25rem .4rem; margin:0; text-align:center; }
+    .photo-slot .slot-check { position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.7rem; }
+    .photo-slot .slot-remove { position:absolute; top:4px; left:4px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:.72rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+
     .already-submitted { background:var(--warning-bg); border:1px solid #fde68a; border-radius:var(--r-lg); padding:1.25rem; text-align:center; }
     .already-submitted.approved { background:var(--success-bg); border-color:#a7f3d0; }
 
@@ -209,10 +217,8 @@
     <!-- Vehicle photos -->
     <div class="check-section">
       <div class="check-section-title">Vehicle Photos</div>
-      <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:.75rem">Take at least one photo showing the car's current condition (front, back, or any damage).</p>
-      <input type="file" id="photoInput" accept="image/*" capture="environment" multiple style="display:none" onchange="handlePhotoSelect(event)"/>
-      <button type="button" class="btn" style="background:var(--brand-light);color:var(--brand-dark);margin-top:0" onclick="document.getElementById('photoInput').click()">📷 Add Photo</button>
-      <div id="photoPreviews" style="display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.75rem"></div>
+      <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:.75rem">Take a photo of each angle below — all 6 are required.</p>
+      <div id="photoSlots" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem"></div>
     </div>
 
     <!-- Driver notes -->
@@ -255,28 +261,48 @@
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let driverProfile = null, assignedCarId = null;
   const levels = { fuel: null, oil: null, water: null };
-  let selectedPhotos = []; // File objects
+  const PHOTO_SLOTS = [
+    { key:'front',     label:'Front' },
+    { key:'back',      label:'Back' },
+    { key:'left',      label:'Left Side' },
+    { key:'right',     label:'Right Side' },
+    { key:'interior',  label:'Interior' },
+    { key:'dashboard', label:'Dashboard' },
+  ];
+  let photoFiles = {}; // key -> File
 
-  window.handlePhotoSelect = (event) => {
-    const files = Array.from(event.target.files || []);
-    selectedPhotos.push(...files);
-    event.target.value = ''; // allow selecting the same file again if removed
-    renderPhotoPreviews();
-  };
-
-  window.removePhoto = (index) => {
-    selectedPhotos.splice(index, 1);
-    renderPhotoPreviews();
-  };
-
-  function renderPhotoPreviews() {
-    const el = document.getElementById('photoPreviews');
-    el.innerHTML = selectedPhotos.map((file, i) => `
-      <div class="photo-thumb">
-        <img src="${URL.createObjectURL(file)}"/>
-        <button type="button" class="remove-photo" onclick="removePhoto(${i})">✕</button>
-      </div>`).join('');
+  function renderPhotoSlots() {
+    const el = document.getElementById('photoSlots');
+    el.innerHTML = PHOTO_SLOTS.map(s => {
+      const file = photoFiles[s.key];
+      if (file) {
+        return `<div class="photo-slot filled">
+          <img src="${URL.createObjectURL(file)}"/>
+          <div class="photo-slot-label">${s.label}</div>
+          <div class="slot-check">✓</div>
+          <button type="button" class="slot-remove" onclick="removeSlotPhoto('${s.key}')">✕</button>
+        </div>`;
+      }
+      return `<label class="photo-slot" for="slotInput_${s.key}">
+        <span style="font-size:1.3rem">📷</span>
+        <span class="photo-slot-label">${s.label}</span>
+        <input type="file" id="slotInput_${s.key}" accept="image/*" capture="environment" style="display:none" onchange="handleSlotPhoto('${s.key}', event)"/>
+      </label>`;
+    }).join('');
   }
+
+  window.handleSlotPhoto = (key, event) => {
+    const file = event.target.files[0];
+    if (file) photoFiles[key] = file;
+    renderPhotoSlots();
+  };
+
+  window.removeSlotPhoto = (key) => {
+    delete photoFiles[key];
+    renderPhotoSlots();
+  };
+
+  renderPhotoSlots();
 
   // Set today date
   const today = new Date();
@@ -309,7 +335,12 @@
 
     // Require at least fuel level
     if (!levels.fuel) { errEl.textContent = 'Please select a fuel level.'; errEl.classList.add('show'); return; }
-    if (!selectedPhotos.length) { errEl.textContent = 'Please add at least one photo of the vehicle.'; errEl.classList.add('show'); return; }
+    const missingSlots = PHOTO_SLOTS.filter(s => !photoFiles[s.key]);
+    if (missingSlots.length) {
+      errEl.textContent = `Please take a photo for: ${missingSlots.map(s=>s.label).join(', ')}.`;
+      errEl.classList.add('show');
+      return;
+    }
 
     const btn = document.getElementById('submitBtn');
     document.getElementById('submitLabel').style.display = 'none';
@@ -317,14 +348,14 @@
     btn.disabled = true;
 
     try {
-      // Upload photos first
+      // Upload photos first, one per required angle
       const photoUrls = [];
-      for (let i = 0; i < selectedPhotos.length; i++) {
-        const file = selectedPhotos[i];
+      for (const slot of PHOTO_SLOTS) {
+        const file = photoFiles[slot.key];
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-        const path = `${driverProfile.id}/${today.toISOString().split('T')[0]}-${Date.now()}-${i}.${ext}`;
+        const path = `${driverProfile.id}/${today.toISOString().split('T')[0]}-${Date.now()}-${slot.key}.${ext}`;
         const { error: upErr } = await db.storage.from('pre-check-photos').upload(path, file, { contentType: file.type || 'image/jpeg' });
-        if (upErr) throw new Error('Photo upload failed: ' + upErr.message);
+        if (upErr) throw new Error(`${slot.label} photo upload failed: ` + upErr.message);
         const { data: pub } = db.storage.from('pre-check-photos').getPublicUrl(path);
         photoUrls.push(pub.publicUrl);
       }
