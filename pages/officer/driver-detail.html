@@ -592,6 +592,11 @@
             <button class="btn btn-ghost" style="padding:.3rem .65rem;font-size:.7rem;border:1.5px solid var(--border)" onclick="toggleEditDetails()">Cancel</button>
           </div>
           <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="editFullName" value="${escAttr(driver.full_name||'')}"/></div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" id="editEmail" value="${escAttr(driver.email||'')}"/>
+            <p style="font-size:.7rem;color:#92400e;margin-top:.35rem;line-height:1.4">⚠️ Changing this updates their profile display only — it does NOT change their actual login credential. If you change it, you'll get a ready-to-run SQL snippet after saving to sync their real login email.</p>
+          </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="editPhone" value="${escAttr(driver.phone||'')}"/></div>
             <div class="form-group"><label class="form-label">ID Number</label><input class="form-input" id="editIdNumber" value="${escAttr(driver.id_number||'')}"/></div>
@@ -602,6 +607,11 @@
             <div class="form-group"><label class="form-label">Emergency Phone</label><input class="form-input" id="editEmergencyPhone" value="${escAttr(driver.emergency_phone||'')}"/></div>
           </div>
           <div class="error-box" id="editErr"></div>
+          <div id="emailSyncBox" style="display:none;background:var(--gray-50);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:.875rem">
+            <div style="font-size:.75rem;font-weight:700;color:var(--gray-700);margin-bottom:.5rem">Run this in Supabase SQL Editor to finish syncing their login:</div>
+            <textarea readonly id="emailSyncSql" style="width:100%;font-family:monospace;font-size:.72rem;background:#fff;border:1px solid var(--border);border-radius:6px;padding:.5rem;resize:vertical" rows="8"></textarea>
+            <button type="button" class="btn btn-outline" style="width:100%;margin-top:.5rem;font-size:.75rem" onclick="copyEmailSyncSql()">📋 Copy SQL</button>
+          </div>
           <button class="btn btn-primary" style="width:100%" onclick="saveDetails()">Save Details</button>`;
       }
     };
@@ -845,8 +855,11 @@
   window.saveDetails = async () => {
     const errEl = document.getElementById('editErr');
     errEl.classList.remove('show');
+    const newEmail = document.getElementById('editEmail').value.trim();
+    const oldEmail = driver.email || '';
     const updates = {
       full_name: document.getElementById('editFullName').value.trim(),
+      email: newEmail,
       phone: document.getElementById('editPhone').value.trim() || null,
       id_number: document.getElementById('editIdNumber').value.trim() || null,
       address: document.getElementById('editAddress').value.trim() || null,
@@ -854,13 +867,29 @@
       emergency_phone: document.getElementById('editEmergencyPhone').value.trim() || null,
     };
     if (!updates.full_name) { errEl.textContent='Full name is required.'; errEl.classList.add('show'); return; }
+    if (!newEmail || !newEmail.includes('@')) { errEl.textContent='Enter a valid email address.'; errEl.classList.add('show'); return; }
     const { error } = await db.from('profiles').update(updates).eq('id', driverId);
     if (error) { errEl.textContent = error.message; errEl.classList.add('show'); return; }
     Object.assign(driver, updates);
+
+    if (newEmail !== oldEmail) {
+      const sql = `begin;\n\nupdate auth.users\nset email = '${newEmail}', updated_at = now()\nwhere id = '${driverId}';\n\nupdate profiles\nset email = '${newEmail}'\nwhere id = '${driverId}';\n\ncommit;`;
+      document.getElementById('emailSyncSql').value = sql;
+      document.getElementById('emailSyncBox').style.display = '';
+      toast('Profile updated — run the SQL below to sync their login', 'success');
+      return; // keep the edit form open so the SQL box stays visible
+    }
+
     toast('Details updated','success');
     editDetailsOpen = false;
     renderPersonal();
     document.getElementById('pageTitle').textContent = driver.full_name.split(' ')[0];
+  };
+
+  window.copyEmailSyncSql = async () => {
+    const el = document.getElementById('emailSyncSql');
+    try { await navigator.clipboard.writeText(el.value); toast('SQL copied', 'success'); }
+    catch { el.select(); }
   };
 
   window.toggleActive = async () => {
