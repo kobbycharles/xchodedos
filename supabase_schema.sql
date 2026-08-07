@@ -421,3 +421,22 @@ create policy "Officers can insert their own driver assignments"
 
 create policy "Officers can update their own driver assignments"
   on officer_driver_assignments for update using (officer_id = auth.uid());
+
+-- ============================================================
+-- PUSH SUBSCRIPTIONS (browser notifications)
+-- ============================================================
+create table push_subscriptions (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references profiles(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth_key text not null,
+  created_at timestamptz default now()
+);
+
+alter table push_subscriptions enable row level security;
+
+create policy "Users can manage their own push subscriptions"
+  on push_subscriptions for all using (user_id = auth.uid());
+
+create index on push_subscriptions(user_id);
