@@ -1,7 +1,7 @@
 // sw.js — xchodedos Service Worker
 // Caches app shell for offline use and fast loads
 
-const CACHE_NAME = 'xchodedos-v5';
+const CACHE_NAME = 'xchodedos-v6';
 
 // Core app shell files to cache on install
 const PRECACHE = [
@@ -14,6 +14,7 @@ const PRECACHE = [
   '/js/maintenance.js',
   '/js/push.js',
   '/js/sync.js',
+  '/js/notifications.js',
   '/pages/admin/dashboard.html',
   '/pages/admin/create-officer.html',
   '/pages/admin/officers.html',

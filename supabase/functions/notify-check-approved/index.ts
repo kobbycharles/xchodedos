@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
     : `Your pre-use check for ${record.check_date} was declined.${record.officer_notes ? ' ' + record.officer_notes : ''}`;
 
   const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('user_id', record.driver_id);
+  await supabase.from('notifications').insert({ user_id: record.driver_id, title, body, url: '/pages/driver/dashboard.html' });
   let sent = 0, failed = 0;
   await Promise.all((subs ?? []).map(async (sub) => {
     try {

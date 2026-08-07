@@ -103,6 +103,10 @@ Deno.serve(async (_req) => {
   const subsByUser: Record<string, any[]> = {};
   (subs ?? []).forEach(s => { (subsByUser[s.user_id] ||= []).push(s); });
 
+  await supabase.from('notifications').insert(
+    notifs.map(n => ({ user_id: n.userId, title: n.title, body: n.body, url: '/pages/officer/fleet.html' }))
+  );
+
   let sent = 0, failed = 0;
   await Promise.all(notifs.map(async n => {
     for (const sub of subsByUser[n.userId] ?? []) {

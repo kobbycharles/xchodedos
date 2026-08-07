@@ -440,3 +440,33 @@ create policy "Users can manage their own push subscriptions"
   on push_subscriptions for all using (user_id = auth.uid());
 
 create index on push_subscriptions(user_id);
+
+-- ============================================================
+-- IN-APP NOTIFICATIONS (backs the notification bell/counter)
+-- ============================================================
+create table notifications (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references profiles(id) on delete cascade,
+  title text not null,
+  body text not null,
+  url text,
+  read boolean default false,
+  created_at timestamptz default now()
+);
+
+alter table notifications enable row level security;
+
+create policy "Users can view their own notifications"
+  on notifications for select using (user_id = auth.uid());
+
+create policy "Users can mark their own notifications read"
+  on notifications for update using (user_id = auth.uid());
+
+-- No insert policy for regular users: notification rows are only ever
+-- created by Edge Functions using the service_role key, which bypasses RLS.
+
+create index on notifications(user_id);
+create index on notifications(user_id, read);
+
+-- Enable realtime so the bell/counter can update live without a refresh.
+alter publication supabase_realtime add table notifications;

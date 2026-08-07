@@ -100,7 +100,10 @@
 <body>
 <header class="top-bar">
   <span class="top-bar-logo">xchodedos</span>
-  <div class="top-bar-avatar" id="avatarBtn"></div>
+  <div style="display:flex;align-items:center;gap:.5rem">
+    <div id="notifBell"></div>
+    <div class="top-bar-avatar" id="avatarBtn"></div>
+  </div>
 </header>
 
 <main class="page-content">
@@ -176,6 +179,7 @@
 <script src="/js/sync.js"></script>
 <script src="/js/maintenance.js"></script>
 <script src="/js/push.js"></script>
+<script src="/js/notifications.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwNDk5ODksImV4cCI6MjA5NzYyNTk4OX0.qJ8qiYWxNGLRXM6QRByNdnawsOSOirVQ3azi--DLSrM';
@@ -198,6 +202,7 @@
     av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } });
 
     initPushPrompt(profile.id, 'pushBanner');
+    initNotificationBell(profile.id, 'notifBell');
 
     // Get my driver IDs
     const { data: assignments } = await db.from('officer_driver_assignments').select('driver_id').eq('officer_id', profile.id).eq('is_active', true);

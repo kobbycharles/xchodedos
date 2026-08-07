@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
   const body = `${driver?.full_name ?? 'A driver'} submitted a check for ${record.check_date}.`;
 
   const { data: subs } = await supabase.from('push_subscriptions').select('*').in('user_id', officerIds);
+  await supabase.from('notifications').insert(officerIds.map(id => ({ user_id: id, title, body, url: '/pages/officer/checks.html' })));
   let sent = 0, failed = 0;
   await Promise.all((subs ?? []).map(async (sub) => {
     try {

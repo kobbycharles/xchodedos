@@ -48,6 +48,7 @@ Deno.serve(async (req) => {
     : `${label} of GHS ${amount} is now marked "${record.status}".`;
 
   const { data: subs } = await supabase.from('push_subscriptions').select('*').eq('user_id', record.driver_id);
+  await supabase.from('notifications').insert({ user_id: record.driver_id, title, body, url: '/pages/driver/payments.html' });
   let sent = 0, failed = 0;
   await Promise.all((subs ?? []).map(async (sub) => {
     try {
