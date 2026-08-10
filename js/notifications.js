@@ -19,7 +19,7 @@ async function initNotificationBell(userId, containerId) {
       </svg>
       <span id="notifBadge" style="display:none;position:absolute;top:-2px;right:-2px;background:#dc2626;color:#fff;font-size:.62rem;font-weight:700;line-height:1;min-width:16px;height:16px;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px"></span>
     </button>
-    <div id="notifPanel" style="display:none;position:absolute;top:100%;right:0;margin-top:.5rem;width:300px;max-height:360px;overflow-y:auto;background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:50">
+    <div id="notifPanel" style="display:none;position:fixed;max-width:calc(100vw - 24px);width:320px;max-height:70vh;overflow-y:auto;background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:200">
       <div style="padding:.75rem;border-bottom:1px solid var(--border,#e5e7eb);display:flex;justify-content:space-between;align-items:center">
         <span style="font-weight:700;font-size:.85rem">Notifications</span>
         <button id="notifMarkAllBtn" style="background:none;border:none;color:var(--brand,#1a56db);font-size:.72rem;font-weight:600;cursor:pointer">Mark all read</button>
@@ -57,6 +57,12 @@ async function initNotificationBell(userId, containerId) {
   document.getElementById('notifBellBtn').addEventListener('click', async (e) => {
     e.stopPropagation();
     const opening = panel.style.display === 'none';
+    if (opening) {
+      const rect = document.getElementById('notifBellBtn').getBoundingClientRect();
+      panel.style.top = Math.round(rect.bottom + 8) + 'px';
+      panel.style.right = Math.round(window.innerWidth - rect.right) + 'px';
+      panel.style.left = 'auto';
+    }
     panel.style.display = opening ? 'block' : 'none';
     if (opening) await loadList();
   });
