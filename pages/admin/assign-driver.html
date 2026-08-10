@@ -157,6 +157,7 @@
   <header class="top-bar">
     <span class="top-bar-logo">xchodedos</span>
     <span class="top-bar-title">Assign Driver</span>
+    <div id="notifBell"></div>
     <div class="top-bar-avatar" id="avatarBtn" style="cursor:pointer"></div>
   </header>
 
@@ -281,12 +282,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/sync.js"></script>
+<script src="/js/notifications.js"></script>
 <script type="module">
   import { requireRole, logout } from '/js/auth.js';
   import db from '/js/supabase.js';
   import { toast } from '/js/toast.js';
+  window.db = db;
 
-  await requireRole('super_admin');
+  const adminProfile = await requireRole('super_admin');
+  initNotificationBell(adminProfile.id, 'notifBell');
 
   let officers = [], drivers = [];
   let selectedOfficer = null, selectedDriver = null;

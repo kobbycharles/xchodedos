@@ -92,6 +92,7 @@
 <header class="top-bar">
   <span class="top-bar-logo">xchodedos</span>
   <span class="top-bar-title">Payment History</span>
+  <div id="notifBell"></div>
   <div class="top-bar-avatar" id="avatarBtn"></div>
 </header>
 
@@ -110,6 +111,7 @@
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/notifications.js"></script>
 <script src="/js/sync.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
@@ -126,6 +128,7 @@
     const av = document.getElementById('avatarBtn');
     av.textContent = ini;
     av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } });
+    initNotificationBell(profile.id, 'notifBell');
 
     const [paymentsRes, assignmentRes] = await Promise.all([
       db.from('payments').select('*').eq('driver_id', profile.id).order('week_starting', { ascending:false }),

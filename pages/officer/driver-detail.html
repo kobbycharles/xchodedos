@@ -142,6 +142,7 @@
 <header class="top-bar">
   <span class="top-bar-logo">xchodedos</span>
   <span class="top-bar-title" id="pageTitle">Driver</span>
+  <div id="notifBell"></div>
   <div class="top-bar-avatar" id="avatarBtn"></div>
 </header>
 
@@ -244,6 +245,7 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/notifications.js"></script>
 <script src="/js/sync.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
@@ -353,6 +355,7 @@
     const av = document.getElementById('avatarBtn');
     av.textContent = ini;
     av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } });
+    initNotificationBell(me.id, 'notifBell');
 
     // Get driver ID from URL
     const params = new URLSearchParams(location.search);

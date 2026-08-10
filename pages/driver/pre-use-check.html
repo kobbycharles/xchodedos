@@ -120,6 +120,7 @@
 <header class="top-bar">
   <span class="top-bar-logo">xchodedos</span>
   <span class="top-bar-title">Pre-Use Check</span>
+  <div id="notifBell"></div>
   <div class="top-bar-avatar" id="avatarBtn"></div>
 </header>
 
@@ -255,6 +256,7 @@
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/notifications.js"></script>
 <script src="/js/sync.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
@@ -402,6 +404,7 @@
     const av = document.getElementById('avatarBtn');
     av.textContent = ini;
     av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } });
+    initNotificationBell(profile.id, 'notifBell');
 
     // Get assigned car
     const { data: asgn } = await db.from('driver_assignments').select('car_id').eq('driver_id', profile.id).eq('is_active', true).single();

@@ -102,6 +102,7 @@
 <header class="top-bar">
   <span class="top-bar-logo">xchodedos</span>
   <span class="top-bar-title">My Profile</span>
+  <div id="notifBell"></div>
   <div class="top-bar-avatar" id="avatarBtn"></div>
 </header>
 
@@ -201,6 +202,7 @@
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/notifications.js"></script>
 <script src="/js/sync.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
@@ -314,6 +316,7 @@
     document.getElementById('avatarBtn').addEventListener('click', () => {
       if(confirm('Sign out?')) { db.auth.signOut().then(()=>window.location.href='/index.html'); }
     });
+    initNotificationBell(p.id, 'notifBell');
   }
   init();
 </script>

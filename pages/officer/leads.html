@@ -83,6 +83,7 @@
   <span class="top-bar-logo">xchodedos</span>
   <span class="top-bar-title">My Leads</span>
   <a href="/pages/officer/create-lead.html" class="btn-sm btn-primary-sm">+ New</a>
+  <div id="notifBell"></div>
   <div class="top-bar-avatar" id="avatarBtn" style="margin-left:.5rem"></div>
 </header>
 
@@ -109,6 +110,7 @@
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/notifications.js"></script>
 <script src="/js/sync.js"></script>
 <script>
   const SUPABASE_URL      = 'https://kgbqjcataatpfpxfvkpc.supabase.co';
@@ -182,6 +184,7 @@
     const ini = p.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
     const av = document.getElementById('avatarBtn');
     if (av) { av.textContent = ini; av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } }); }
+    initNotificationBell(p.id, 'notifBell');
 
     const { data: leads } = await db.from('leads').select('*, profiles!leads_profile_id_fkey(full_name, phone, email)').eq('created_by', p.id).order('created_at', { ascending:false });
     allLeads = leads || [];
