@@ -10,9 +10,9 @@ select cron.schedule(
   '0 7 * * *',
   $$
   select net.http_post(
-    url := 'https://<PROJECT_REF>.supabase.co/functions/v1/send-maintenance-reminders',
+    url := 'https://kgbqjcataatpfpxfvkpc.supabase.co/functions/v1/send-maintenance-reminders',
     headers := jsonb_build_object(
-      'Authorization', 'Bearer <SERVICE_ROLE_KEY>',
+      'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtnYnFqY2F0YWF0cGZweGZ2a3BjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjA0OTk4OSwiZXhwIjoyMDk3NjI1OTg5fQ.C4c9g-oJ-9qlGqOc8OmhBDe728185qdssyEbm6GLsXc',
       'Content-Type', 'application/json'
     )
   );
