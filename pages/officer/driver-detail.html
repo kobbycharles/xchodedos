@@ -324,12 +324,13 @@
     // with any date inside the correct window.
     const weeklyPayments = (payments||[]).filter(p => p.payment_method !== 'deposit' && p.week_starting);
     const paidByIndex = new Map();
-    const recordByIndex = new Map();
+    const recordsByIndex = new Map(); // idx -> array of ALL payment rows in that week (never collapses to one)
     weeklyPayments.forEach(p => {
       const pDate = new Date(p.week_starting); pDate.setHours(0,0,0,0);
       const idx = Math.floor((pDate - start) / msPerWeek);
       if (idx < 0) return; // payment dated before the contract's first week — ignore
-      recordByIndex.set(idx, p);
+      if (!recordsByIndex.has(idx)) recordsByIndex.set(idx, []);
+      recordsByIndex.get(idx).push(p);
       if (p.status === 'paid') paidByIndex.set(idx, (paidByIndex.get(idx)||0) + parseFloat(p.amount||0));
     });
 
@@ -340,7 +341,8 @@
       const weekEnd = new Date(cursor.getTime() + 6*24*60*60*1000).toISOString().split('T')[0];
       const paid = paidByIndex.get(idx) || 0;
       const status = paid <= 0 ? 'missed' : (paid < weekly ? 'partial' : 'paid');
-      weeks.push({ wk, weekStart, weekEnd, due: weekly, paid, status, record: recordByIndex.get(idx) || null });
+      const records = recordsByIndex.get(idx) || [];
+      weeks.push({ wk, weekStart, weekEnd, due: weekly, paid, status, records, record: records[0] || null });
     }
     return weeks.reverse(); // most recent week first
   }
@@ -676,14 +678,26 @@
               <td>
                 <div class="ledger-paid-amt">GHS ${w.paid.toFixed(2)}</div>
                 ${w.paid < w.due ? `<div class="ledger-delta">-${(w.due - w.paid).toFixed(2)}</div>` : ''}
+                ${w.records.length > 1 ? `<div style="font-size:.68rem;color:#b45309;font-weight:600;margin-top:.15rem">⚠️ ${w.records.length} payments this week</div>` : ''}
               </td>
               <td><span class="badge ${statusBadge[w.status]}">${statusLabel[w.status]}</span></td>
               <td style="color:var(--gray-400);font-size:.78rem">${w.record?.notes || '—'}</td>
               <td>
-                <div class="ledger-actions">
-                  <button class="ledger-btn edit" onclick='openWeekEdit(${JSON.stringify(w)})'>✏️ Edit</button>
-                  ${w.record ? `<button class="ledger-btn del" onclick="deleteWeekPayment('${w.record.id}')">🗑</button>` : ''}
-                </div>
+                ${w.records.length > 1 ? `
+                  <div style="display:flex;flex-direction:column;gap:.3rem">
+                    ${w.records.map(r => `
+                      <div class="ledger-actions" style="justify-content:flex-end">
+                        <span style="font-size:.72rem;color:var(--gray-500);margin-right:.3rem">GHS ${parseFloat(r.amount).toFixed(2)}</span>
+                        <button class="ledger-btn edit" onclick='openPaymentEdit(${JSON.stringify(r)})'>✏️</button>
+                        <button class="ledger-btn del" onclick="deleteWeekPayment('${r.id}')">🗑</button>
+                      </div>`).join('')}
+                  </div>
+                ` : `
+                  <div class="ledger-actions">
+                    <button class="ledger-btn edit" onclick='openWeekEdit(${JSON.stringify(w)})'>✏️ Edit</button>
+                    ${w.record ? `<button class="ledger-btn del" onclick="deleteWeekPayment('${w.record.id}')">🗑</button>` : ''}
+                  </div>
+                `}
               </td>
             </tr>`).join('')}
           </tbody>
