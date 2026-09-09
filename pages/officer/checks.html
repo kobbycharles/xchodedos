@@ -239,7 +239,7 @@
       ${(c.photo_urls && c.photo_urls.length) ? `
         <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-bottom:.5rem">Vehicle Photos</div>
         <div style="display:flex;flex-wrap:wrap;gap:.6rem;margin-bottom:.875rem">
-          ${c.photo_urls.map(url => `<a href="${url}" target="_blank"><img src="${url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"/></a>`).join('')}
+          ${c.photo_urls.map(url => `<a href="${url}" target="_blank"><img src="${url}" loading="lazy" style="width:80px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"/></a>`).join('')}
         </div>` : ''}
       <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);margin-bottom:.5rem">Officer Notes</div>`;
 
