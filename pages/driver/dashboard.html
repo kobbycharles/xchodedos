@@ -156,6 +156,7 @@
   <!-- Today's check status -->
   <div class="section-head" style="margin-top:1rem"><span class="section-title">Today's Pre-Use Check</span></div>
   <div id="checkBanner"><div class="skeleton" style="height:52px;border-radius:12px"></div></div>
+  <div id="whatsappBanner"></div>
 
   <!-- Car -->
   <div class="section-head"><span class="section-title">My Vehicle</span><a href="/pages/driver/car.html" style="font-size:.8rem;color:var(--brand)">Details →</a></div>
@@ -374,6 +375,40 @@
       </div>`;
     }
 
+    // WhatsApp car photos — required Mondays and Fridays
+    const WA_NUMBER = '233506963125'; // 0506963125 in international format, no leading 0 or +
+    const REQUIRED_WA_DAYS = [1, 5]; // Monday, Friday
+    const todayDow = new Date().getDay();
+    const isWaDayToday = REQUIRED_WA_DAYS.includes(todayDow);
+    const waBanner = document.getElementById('whatsappBanner');
+
+    if (isWaDayToday) {
+      const todayStr2 = new Date().toISOString().split('T')[0];
+      const { data: waLog } = await db.from('whatsapp_photo_log').select('id').eq('driver_id', profile.id).eq('send_date', todayStr2).maybeSingle();
+      const message = encodeURIComponent(`Vehicle photos — ${profile.full_name} — ${todayStr2}`);
+      const waLink = `https://wa.me/${WA_NUMBER}?text=${message}`;
+
+      if (waLog) {
+        waBanner.innerHTML = `<div class="check-banner approved" style="margin-top:.5rem">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <div style="flex:1">Car photos sent via WhatsApp today ✅</div>
+        </div>`;
+      } else {
+        waBanner.innerHTML = `<div class="check-banner none" style="margin-top:.5rem;flex-direction:column;align-items:stretch;gap:.6rem">
+          <div style="display:flex;align-items:center;gap:.75rem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <div style="flex:1">Send today's car photos via WhatsApp (front, back, sides, interior, dashboard).</div>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <a href="${waLink}" target="_blank" style="flex:1;text-align:center;background:#25D366;color:#fff;font-weight:700;font-size:.82rem;padding:.6rem;border-radius:8px;text-decoration:none">📷 Send via WhatsApp</a>
+            <button onclick="confirmWhatsappSent()" style="flex:1;background:#fff;border:1.5px solid #991b1b;color:#991b1b;font-weight:700;font-size:.82rem;padding:.6rem;border-radius:8px;cursor:pointer">✓ I've Sent Them</button>
+          </div>
+        </div>`;
+      }
+    } else {
+      waBanner.innerHTML = '';
+    }
+
     // Car section
     const carSec = document.getElementById('carSection');
     if (!assignment?.cars) {
@@ -410,6 +445,17 @@
         </div>`).join('');
     }
   }
+  window.confirmWhatsappSent = async () => {
+    const { data: { session } } = await db.auth.getSession();
+    if (!session) return;
+    const { error } = await db.from('whatsapp_photo_log').insert({
+      driver_id: session.user.id,
+      send_date: new Date().toISOString().split('T')[0],
+    });
+    if (error) { alert('Could not save confirmation: ' + error.message); return; }
+    init(); // refresh the banner to show the confirmed state
+  };
+
   init();
 </script>
 </body>

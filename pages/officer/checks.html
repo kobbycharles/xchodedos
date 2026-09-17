@@ -112,6 +112,7 @@
 </header>
 
 <main class="page-content">
+  <div id="whatsappPanel"></div>
   <div class="filter-tabs">
     <button class="filter-tab active" onclick="setFilter('pending',this)">Pending</button>
     <button class="filter-tab" onclick="setFilter('approved',this)">Approved</button>
@@ -152,7 +153,7 @@
 
   function toast(msg, type='default') { const c=document.getElementById('toast-container'); const el=document.createElement('div'); el.className='toast '+type; el.textContent=msg; c.appendChild(el); setTimeout(()=>el.remove(),3000); }
 
-  const checkLabels = { tyres_ok:'Tyres', brakes_ok:'Brakes', lights_ok:'Lights', mirrors_ok:'Mirrors', wipers_ok:'Wipers', interior_clean:'Interior', handbrake_ok:'Handbrake', horn_ok:'Horn', seatbelts_ok:'Seatbelts', dashboard_lights_ok:'No Warning Lights', ac_ok:'AC/Cooling', spare_tyre_ok:'Spare Tyre & Jack' };
+  const checkLabels = { tyres_ok:'Tyres', brakes_ok:'Brakes', lights_ok:'Lights', mirrors_ok:'Mirrors', wipers_ok:'Wipers', interior_clean:'Interior' };
 
   window.setFilter = (f, el) => {
     currentFilter = f;
@@ -227,8 +228,6 @@
     const items = [
       ['Tyres', c.tyres_ok], ['Brakes', c.brakes_ok], ['Lights', c.lights_ok],
       ['Mirrors', c.mirrors_ok], ['Wipers', c.wipers_ok], ['Interior', c.interior_clean],
-      ['Handbrake', c.handbrake_ok], ['Horn', c.horn_ok], ['Seatbelts', c.seatbelts_ok],
-      ['No Warning Lights', c.dashboard_lights_ok], ['AC/Cooling', c.ac_ok], ['Spare Tyre & Jack', c.spare_tyre_ok],
     ];
     document.getElementById('modalBody').innerHTML = `
       <div class="check-grid">
@@ -277,7 +276,31 @@
     const { data, error } = await db.from('pre_use_checks').select('*, profiles!driver_id(full_name), cars(plate_number, make, model)').in('driver_id', ids).order('submitted_at', { ascending:false });
     if (error) { console.error('loadChecks error:', error); toast('Failed to load checks', 'error'); }
     allChecks = data || [];
+    await renderWhatsappPanel();
     render();
+  }
+
+  async function renderWhatsappPanel() {
+    const panel = document.getElementById('whatsappPanel');
+    const REQUIRED_WA_DAYS = [1, 5]; // Monday, Friday
+    const todayDow = new Date().getDay();
+    if (!REQUIRED_WA_DAYS.includes(todayDow) || !activeDrivers.length) { panel.innerHTML = ''; return; }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { data: logs } = await db.from('whatsapp_photo_log').select('driver_id').eq('send_date', todayStr).in('driver_id', activeDrivers.map(d=>d.id));
+    const confirmedIds = new Set((logs||[]).map(l => l.driver_id));
+    const missing = activeDrivers.filter(d => !confirmedIds.has(d.id));
+
+    panel.innerHTML = `<div class="date-group">
+      <div class="date-header">
+        <span class="date-title">📷 WhatsApp Car Photos — Today</span>
+        <span class="date-counts">${confirmedIds.size}/${activeDrivers.length} confirmed</span>
+      </div>
+      ${missing.length
+        ? `<div class="missing-box">⚠️ Not yet confirmed: ${missing.map(d=>d.full_name).join(', ')}</div>`
+        : `<div class="missing-box all-done">✓ All drivers confirmed</div>`}
+      <p style="font-size:.72rem;color:var(--gray-400);margin-top:.5rem">Self-reported by drivers — check WhatsApp directly to verify photos actually came through.</p>
+    </div>`;
   }
 
   async function init() {
