@@ -90,13 +90,6 @@
     .photo-thumb img { width:100%; height:100%; object-fit:cover; }
     .photo-thumb .remove-photo { position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:.75rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 
-    .photo-slot { position:relative; aspect-ratio:1; border-radius:var(--r-sm); overflow:hidden; border:1.5px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.3rem; cursor:pointer; background:var(--gray-50); }
-    .photo-slot.filled { border-style:solid; border-color:var(--brand); padding:0; }
-    .photo-slot img { width:100%; height:100%; object-fit:cover; }
-    .photo-slot-label { font-size:.72rem; font-weight:600; color:var(--gray-500); }
-    .photo-slot.filled .photo-slot-label { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.55); color:#fff; padding:.25rem .4rem; margin:0; text-align:center; }
-    .photo-slot .slot-check { position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%; background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.7rem; }
-    .photo-slot .slot-remove { position:absolute; top:4px; left:4px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.6); color:#fff; border:none; font-size:.72rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
 
     .already-submitted { background:var(--warning-bg); border:1px solid #fde68a; border-radius:var(--r-lg); padding:1.25rem; text-align:center; }
     .already-submitted.approved { background:var(--success-bg); border-color:#a7f3d0; }
@@ -166,6 +159,36 @@
       </div>
     </div>
 
+    <!-- Additional checks (Kia Morning 2015/2016) -->
+    <div class="check-section">
+      <div class="check-section-title">Additional Checks</div>
+
+      <div class="check-item">
+        <div class="check-item-label"><div class="check-item-icon" style="background:#fee2e2">🅿️</div>Handbrake</div>
+        <label class="toggle"><input type="checkbox" id="handbrake"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="check-item">
+        <div class="check-item-label"><div class="check-item-icon" style="background:#fef9c3">📯</div>Horn</div>
+        <label class="toggle"><input type="checkbox" id="horn"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="check-item">
+        <div class="check-item-label"><div class="check-item-icon" style="background:#e0f2fe">🔒</div>Seatbelts (all)</div>
+        <label class="toggle"><input type="checkbox" id="seatbelts"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="check-item">
+        <div class="check-item-label"><div class="check-item-icon" style="background:#fef3c7">⚠️</div>No Dashboard Warning Lights</div>
+        <label class="toggle"><input type="checkbox" id="dashboardLights"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="check-item">
+        <div class="check-item-label"><div class="check-item-icon" style="background:#eff6ff">❄️</div>AC / Cooling Works</div>
+        <label class="toggle"><input type="checkbox" id="ac"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="check-item">
+        <div class="check-item-label"><div class="check-item-icon" style="background:#f0fdf4">🔧</div>Spare Tyre &amp; Jack Present</div>
+        <label class="toggle"><input type="checkbox" id="spareTyre"/><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
     <!-- Fluid levels -->
     <div class="check-section">
       <div class="check-section-title">Fluid Levels</div>
@@ -215,13 +238,6 @@
       </div>
     </div>
 
-    <!-- Vehicle photos -->
-    <div class="check-section">
-      <div class="check-section-title">Vehicle Photos</div>
-      <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:.75rem">Take a photo of each angle below — all 6 are required.</p>
-      <div id="photoSlots" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem"></div>
-    </div>
-
     <!-- Driver notes -->
     <div class="check-section">
       <div class="check-section-title">Driver Notes</div>
@@ -265,48 +281,6 @@
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let driverProfile = null, assignedCarId = null;
   const levels = { fuel: null, oil: null, water: null };
-  const PHOTO_SLOTS = [
-    { key:'front',     label:'Front' },
-    { key:'back',      label:'Back' },
-    { key:'left',      label:'Left Side' },
-    { key:'right',     label:'Right Side' },
-    { key:'interior',  label:'Interior' },
-    { key:'dashboard', label:'Dashboard' },
-  ];
-  let photoFiles = {}; // key -> File
-
-  function renderPhotoSlots() {
-    const el = document.getElementById('photoSlots');
-    el.innerHTML = PHOTO_SLOTS.map(s => {
-      const file = photoFiles[s.key];
-      if (file) {
-        return `<div class="photo-slot filled">
-          <img src="${URL.createObjectURL(file)}"/>
-          <div class="photo-slot-label">${s.label}</div>
-          <div class="slot-check">✓</div>
-          <button type="button" class="slot-remove" onclick="removeSlotPhoto('${s.key}')">✕</button>
-        </div>`;
-      }
-      return `<label class="photo-slot" for="slotInput_${s.key}">
-        <span style="font-size:1.3rem">📷</span>
-        <span class="photo-slot-label">${s.label}</span>
-        <input type="file" id="slotInput_${s.key}" accept="image/*" capture="environment" style="display:none" onchange="handleSlotPhoto('${s.key}', event)"/>
-      </label>`;
-    }).join('');
-  }
-
-  window.handleSlotPhoto = (key, event) => {
-    const file = event.target.files[0];
-    if (file) photoFiles[key] = file;
-    renderPhotoSlots();
-  };
-
-  window.removeSlotPhoto = (key) => {
-    delete photoFiles[key];
-    renderPhotoSlots();
-  };
-
-  renderPhotoSlots();
 
   // Set today date
   const today = new Date();
@@ -324,32 +298,6 @@
     document.getElementById('damageNotesWrap').style.display = show ? '' : 'none';
   };
 
-  // Compress a photo before upload: resize to a max dimension and re-encode
-  // as JPEG at moderate quality. A typical 3-4MB phone photo becomes
-  // ~150-300KB, cutting storage and bandwidth usage by 10-20x with no
-  // visible quality loss for review purposes.
-  function compressImage(file, maxDim = 1600, quality = 0.72) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        let { width, height } = img;
-        if (width > height && width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim; }
-        else if (height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        canvas.toBlob(blob => {
-          if (!blob) { reject(new Error('Compression failed')); return; }
-          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-        }, 'image/jpeg', quality);
-      };
-      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Could not read image')); };
-      img.src = objectUrl;
-    });
-  }
-
   window.submitCheck = async () => {
     const errEl = document.getElementById('errBox');
     errEl.classList.remove('show');
@@ -361,16 +309,16 @@
       mirrors_ok:    document.getElementById('mirrors').checked,
       wipers_ok:     document.getElementById('wipers').checked,
       interior_clean:document.getElementById('interior').checked,
+      handbrake_ok:        document.getElementById('handbrake').checked,
+      horn_ok:             document.getElementById('horn').checked,
+      seatbelts_ok:        document.getElementById('seatbelts').checked,
+      dashboard_lights_ok: document.getElementById('dashboardLights').checked,
+      ac_ok:               document.getElementById('ac').checked,
+      spare_tyre_ok:        document.getElementById('spareTyre').checked,
     };
 
     // Require at least fuel level
     if (!levels.fuel) { errEl.textContent = 'Please select a fuel level.'; errEl.classList.add('show'); return; }
-    const missingSlots = PHOTO_SLOTS.filter(s => !photoFiles[s.key]);
-    if (missingSlots.length) {
-      errEl.textContent = `Please take a photo for: ${missingSlots.map(s=>s.label).join(', ')}.`;
-      errEl.classList.add('show');
-      return;
-    }
 
     const btn = document.getElementById('submitBtn');
     document.getElementById('submitLabel').style.display = 'none';
@@ -378,22 +326,6 @@
     btn.disabled = true;
 
     try {
-      // Upload photos first, one per required angle (compressed to cut storage/bandwidth usage)
-      const photoUrls = [];
-      for (const slot of PHOTO_SLOTS) {
-        const rawFile = photoFiles[slot.key];
-        let file = rawFile;
-        try { file = await compressImage(rawFile); } catch (e) { console.warn('Compression failed, uploading original:', e); }
-        const path = `${driverProfile.id}/${today.toISOString().split('T')[0]}-${Date.now()}-${slot.key}.jpg`;
-        const { error: upErr } = await db.storage.from('pre-check-photos').upload(path, file, {
-          contentType: 'image/jpeg',
-          cacheControl: '31536000', // 1 year — lets browsers cache instead of re-downloading on every view
-        });
-        if (upErr) throw new Error(`${slot.label} photo upload failed: ` + upErr.message);
-        const { data: pub } = db.storage.from('pre-check-photos').getPublicUrl(path);
-        photoUrls.push(pub.publicUrl);
-      }
-
       const bodyDamage = document.getElementById('bodyDamage').checked;
       const { error } = await db.from('pre_use_checks').insert({
         driver_id:    driverProfile.id,
@@ -407,7 +339,6 @@
         body_damage_notes: bodyDamage ? document.getElementById('damageNotes').value.trim() : null,
         odometer_start: parseInt(document.getElementById('odometer').value) || null,
         driver_notes: document.getElementById('driverNotes').value.trim() || null,
-        photo_urls: photoUrls,
         status: 'pending',
       });
       if (error) throw error;

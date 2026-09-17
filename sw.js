@@ -1,7 +1,7 @@
 // sw.js — xchodedos Service Worker
 // Caches app shell for offline use and fast loads
 
-const CACHE_NAME = 'xchodedos-v8';
+const CACHE_NAME = 'xchodedos-v9';
 
 // Core app shell files to cache on install
 const PRECACHE = [

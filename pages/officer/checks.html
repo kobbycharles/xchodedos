@@ -152,7 +152,7 @@
 
   function toast(msg, type='default') { const c=document.getElementById('toast-container'); const el=document.createElement('div'); el.className='toast '+type; el.textContent=msg; c.appendChild(el); setTimeout(()=>el.remove(),3000); }
 
-  const checkLabels = { tyres_ok:'Tyres', brakes_ok:'Brakes', lights_ok:'Lights', mirrors_ok:'Mirrors', wipers_ok:'Wipers', interior_clean:'Interior' };
+  const checkLabels = { tyres_ok:'Tyres', brakes_ok:'Brakes', lights_ok:'Lights', mirrors_ok:'Mirrors', wipers_ok:'Wipers', interior_clean:'Interior', handbrake_ok:'Handbrake', horn_ok:'Horn', seatbelts_ok:'Seatbelts', dashboard_lights_ok:'No Warning Lights', ac_ok:'AC/Cooling', spare_tyre_ok:'Spare Tyre & Jack' };
 
   window.setFilter = (f, el) => {
     currentFilter = f;
@@ -227,6 +227,8 @@
     const items = [
       ['Tyres', c.tyres_ok], ['Brakes', c.brakes_ok], ['Lights', c.lights_ok],
       ['Mirrors', c.mirrors_ok], ['Wipers', c.wipers_ok], ['Interior', c.interior_clean],
+      ['Handbrake', c.handbrake_ok], ['Horn', c.horn_ok], ['Seatbelts', c.seatbelts_ok],
+      ['No Warning Lights', c.dashboard_lights_ok], ['AC/Cooling', c.ac_ok], ['Spare Tyre & Jack', c.spare_tyre_ok],
     ];
     document.getElementById('modalBody').innerHTML = `
       <div class="check-grid">
