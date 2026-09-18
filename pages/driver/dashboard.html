@@ -376,7 +376,8 @@
     }
 
     // WhatsApp car photos — required Mondays and Fridays
-    const WA_NUMBER = '233506963125'; // 0506963125 in international format, no leading 0 or +
+    const { data: waSetting } = await db.from('app_settings').select('value').eq('key', 'whatsapp_photo_number').maybeSingle();
+    const WA_NUMBER = waSetting?.value || '233506963125'; // fallback if setting isn't configured yet
     const REQUIRED_WA_DAYS = [1, 5]; // Monday, Friday
     const todayDow = new Date().getDay();
     const isWaDayToday = REQUIRED_WA_DAYS.includes(todayDow);

@@ -31,6 +31,7 @@ const PRECACHE = [
   '/pages/officer/record-payment.html',
   '/pages/officer/driver-detail.html',
   '/pages/officer/assign-vehicle.html',
+  '/pages/officer/settings.html',
   '/pages/driver/dashboard.html',
   '/pages/driver/payments.html',
   '/pages/driver/pre-use-check.html',

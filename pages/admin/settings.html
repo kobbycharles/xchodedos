@@ -237,6 +237,20 @@
       </div>
     </div>
 
+    <!-- App Configuration -->
+    <div class="settings-section">
+      <div class="settings-label">App Configuration</div>
+      <div class="settings-list" style="padding:1rem">
+        <label style="font-size:.75rem;font-weight:600;color:var(--gray-600);display:block;margin-bottom:.4rem">WhatsApp Photo Number</label>
+        <p style="font-size:.72rem;color:var(--gray-400);margin-bottom:.6rem">Drivers are directed here to send vehicle photos every Monday and Friday. Format: country code + number, no leading 0 or +, e.g. 233506963125.</p>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="waNumberInput" placeholder="233506963125" style="flex:1;padding:.6rem .8rem;border:1px solid var(--border);border-radius:8px;font-size:.85rem"/>
+          <button onclick="saveWaNumber()" style="background:var(--brand);color:#fff;border:none;padding:.6rem 1rem;border-radius:8px;font-weight:600;font-size:.82rem;cursor:pointer">Save</button>
+        </div>
+        <div id="waNumberMsg" style="font-size:.75rem;margin-top:.5rem;display:none"></div>
+      </div>
+    </div>
+
     <!-- Sign out -->
     <div class="settings-section">
       <div class="settings-list">
@@ -332,6 +346,27 @@
 
   const profile = await requireRole('super_admin');
   initNotificationBell(profile.id, 'notifBell');
+  loadWaNumber();
+
+  window.loadWaNumber = async function() {
+    const { data } = await db.from('app_settings').select('value').eq('key', 'whatsapp_photo_number').maybeSingle();
+    if (data) document.getElementById('waNumberInput').value = data.value || '';
+  };
+
+  window.saveWaNumber = async function() {
+    const val = document.getElementById('waNumberInput').value.trim();
+    const msg = document.getElementById('waNumberMsg');
+    if (!/^\d{10,15}$/.test(val)) {
+      msg.textContent = 'Enter digits only, with country code, no + or leading 0.';
+      msg.style.color = '#991b1b';
+      msg.style.display = 'block';
+      return;
+    }
+    const { error } = await db.from('app_settings').update({ value: val, updated_at: new Date().toISOString(), updated_by: profile.id }).eq('key', 'whatsapp_photo_number');
+    msg.style.display = 'block';
+    if (error) { msg.textContent = 'Failed to save: ' + error.message; msg.style.color = '#991b1b'; }
+    else { msg.textContent = 'Saved ✓'; msg.style.color = '#065f46'; }
+  };
   let currentProfile = profile;
 
   // Render header
