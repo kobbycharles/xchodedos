@@ -199,18 +199,23 @@
           <span>${month}</span><span style="font-family:var(--font-display);color:var(--success)">GHS ${monthTotal.toFixed(2)}</span>
         </div>
         <div class="payment-card">
-          ${pmts.map(p => `<div class="payment-row">
+          ${pmts.map(p => {
+            const wStart = new Date(p.week_starting);
+            const wEnd = new Date(wStart.getTime() + 6*24*60*60*1000);
+            const fmtDate = d => d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+            return `<div class="payment-row">
             <div class="payment-icon ${p.status==='paid'?'paid':'pending'}">${methodIcons[p.payment_method]||'💳'}</div>
             <div class="payment-info">
               <div class="payment-amount">GHS ${parseFloat(p.amount).toFixed(2)}</div>
-              <div class="payment-meta">Week of ${p.week_starting}${p.reference?' · Ref: '+p.reference:''}</div>
+              <div class="payment-meta">Week of ${fmtDate(wStart)} – ${fmtDate(wEnd)}${p.reference?' · Ref: '+p.reference:''}</div>
               ${p.notes?`<div class="payment-meta">${p.notes}</div>`:''}
             </div>
             <div class="payment-right">
               <span class="badge ${p.status==='paid'?'badge-green':'badge-amber'}">${p.status}</span>
               ${p.paid_at?`<div style="font-size:.68rem;color:var(--gray-400);margin-top:.25rem">${new Date(p.paid_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>`:''}
             </div>
-          </div>`).join('')}
+          </div>`;
+          }).join('')}
         </div>
       </div>`;
     }).join('');
