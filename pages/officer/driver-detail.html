@@ -206,6 +206,24 @@
 </nav>
 <div id="toast-container"></div>
 
+<!-- Terminate Contract modal -->
+<div class="modal-overlay" id="terminateModal" onclick="closeTerminateModal(event)">
+  <div class="modal-sheet">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:.4rem;color:#92400e">Terminate Contract</div>
+    <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:1rem;line-height:1.5">This ends the assignment and frees the vehicle. Payment history is kept and the driver moves to the Terminated Drivers records.</p>
+    <div class="form-group"><label class="form-label">Termination Date</label><input class="form-input" type="date" id="termDate"/></div>
+    <div class="form-group">
+      <label class="form-label">Reason for Termination *</label>
+      <textarea class="form-input" id="termReason" rows="4" maxlength="1000" placeholder="e.g. Repeated missed payments, vehicle returned voluntarily, accident, breach of contract…"></textarea>
+    </div>
+    <div id="termErr" style="display:none;margin-bottom:.75rem;padding:.7rem;background:var(--danger-bg);border-radius:8px;font-size:.8rem;color:#991b1b"></div>
+    <div style="display:flex;gap:.6rem">
+      <button class="btn btn-outline" style="flex:1" onclick="closeTerminateModal()">Cancel</button>
+      <button class="btn" style="flex:1;background:#b45309;color:#fff" id="termBtn" onclick="confirmTerminate()">Terminate</button>
+    </div>
+  </div>
+</div>
+
 <!-- Edit Contract modal -->
 <div class="modal-overlay" id="contractModal" onclick="closeContractModal(event)">
   <div class="modal-sheet">
@@ -920,18 +938,47 @@
     init();
   };
 
-  window.terminateContract = async () => {
+  window.terminateContract = () => {
     if (!assignment) return;
-    if (!confirm('Terminate this contract? This ends the assignment and frees up the vehicle for reassignment.')) return;
-    const { error: aErr } = await db.from('driver_assignments').update({ is_active:false, unassigned_at:new Date().toISOString() }).eq('id', assignment.id);
-    if (aErr) { toast('Failed to terminate contract: ' + aErr.message, 'error'); return; }
-    if (assignment.car_id) {
-      const { error: cErr } = await db.from('cars').update({ status:'available' }).eq('id', assignment.car_id);
-      if (cErr) console.error('Failed to free up car:', cErr);
+    document.getElementById('termDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('termReason').value = '';
+    document.getElementById('termErr').style.display = 'none';
+    document.getElementById('terminateModal').classList.add('open');
+  };
+  window.closeTerminateModal = (e) => { if (!e || e.target === document.getElementById('terminateModal')) document.getElementById('terminateModal').classList.remove('open'); };
+
+  window.confirmTerminate = async () => {
+    if (!assignment) return;
+    const errEl = document.getElementById('termErr');
+    const reason = document.getElementById('termReason').value.trim();
+    const dateVal = document.getElementById('termDate').value;
+    if (reason.length < 5) { errEl.textContent = 'Please state the reason for termination (at least a few words).'; errEl.style.display = 'block'; return; }
+    if (!dateVal) { errEl.textContent = 'Termination date is required.'; errEl.style.display = 'block'; return; }
+    const btn = document.getElementById('termBtn');
+    btn.disabled = true; btn.textContent = 'Terminating…';
+    try {
+      const { data:{ session } } = await db.auth.getSession();
+      const when = new Date(dateVal + 'T12:00:00').toISOString();
+      const { error: aErr } = await db.from('driver_assignments').update({
+        is_active: false,
+        unassigned_at: when,
+        terminated_at: when,
+        termination_reason: reason,
+        terminated_by: session?.user?.id || null
+      }).eq('id', assignment.id);
+      if (aErr) throw aErr;
+      if (assignment.car_id) {
+        const { error: cErr } = await db.from('cars').update({ status:'available' }).eq('id', assignment.car_id);
+        if (cErr) console.error('Failed to free up car:', cErr);
+      }
+      await db.from('officer_driver_assignments').update({ is_active:false }).eq('driver_id', driverId);
+      toast('Contract terminated — saved to Terminated Drivers','success');
+      closeTerminateModal();
+      setTimeout(() => { window.location.href = '/pages/officer/terminated-drivers.html'; }, 700);
+    } catch (e) {
+      errEl.textContent = 'Failed to terminate: ' + (e.message || e); errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Terminate';
     }
-    await db.from('officer_driver_assignments').update({ is_active:false }).eq('driver_id', driverId);
-    toast('Contract terminated','success');
-    init();
   };
 
   window.deleteDriver = async () => {

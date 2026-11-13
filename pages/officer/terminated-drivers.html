@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>xchodedos — My Drivers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brand:#1a56db; --brand-dark:#1239a5; --brand-light:#e8eeff;
+      --success:#12b76a; --success-bg:#ecfdf3; --warning:#f59e0b; --warning-bg:#fffbeb;
+      --danger:#ef4444; --danger-bg:#fef2f2;
+      --gray-50:#f9fafb; --gray-100:#f3f4f6; --gray-200:#e5e7eb; --gray-300:#d1d5db;
+      --gray-400:#9ca3af; --gray-500:#6b7280; --gray-600:#4b5563; --gray-700:#374151;
+      --gray-800:#1f2937; --gray-900:#111827;
+      --border:#e5e7eb; --surface:#fff; --bg:#f5f7ff;
+      --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif;
+      --r-sm:8px; --r-md:12px; --r-lg:16px; --r-full:9999px;
+      --shadow-sm:0 1px 3px rgba(0,0,0,.08); --nav-h:64px;
+    }
+    html { -webkit-text-size-adjust:100%; }
+    body { font-family:var(--font-body); background:var(--bg); color:var(--gray-800); min-height:100dvh; }
+    a { text-decoration:none; color:inherit; }
+    button { cursor:pointer; font-family:inherit; }
+
+    .top-bar { position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid var(--border); padding:.875rem 1rem; display:flex; align-items:center; gap:.75rem; }
+    .top-bar-logo { font-family:var(--font-display); font-weight:700; font-size:1.1rem; color:var(--brand); }
+    .top-bar-title { font-weight:600; font-size:1rem; color:var(--gray-800); flex:1; }
+    .top-bar-avatar { width:36px; height:36px; border-radius:var(--r-full); background:var(--brand-light); color:var(--brand); display:grid; place-items:center; font-weight:700; font-size:.8rem; cursor:pointer; }
+
+    .page-content { padding:1.25rem 1rem calc(var(--nav-h) + 1.25rem); max-width:540px; margin:0 auto; }
+
+    .search-bar { position:relative; margin-bottom:.875rem; }
+    .search-bar svg { position:absolute; left:.875rem; top:50%; transform:translateY(-50%); color:var(--gray-400); pointer-events:none; }
+    .search-bar input { width:100%; background:#fff; border:1.5px solid var(--border); border-radius:var(--r-sm); color:var(--gray-800); font-family:var(--font-body); font-size:.9rem; padding:.7rem .875rem .7rem 2.6rem; outline:none; }
+    .search-bar input:focus { border-color:var(--brand); box-shadow:0 0 0 3px rgba(26,86,219,.12); }
+
+    .driver-card { background:#fff; border:1px solid var(--border); border-radius:var(--r-md); padding:1rem; margin-bottom:.75rem; box-shadow:var(--shadow-sm); }
+    .driver-header { display:flex; align-items:center; gap:.875rem; margin-bottom:.875rem; }
+    .driver-avatar { width:48px; height:48px; border-radius:var(--r-full); background:var(--brand-light); color:var(--brand); display:grid; place-items:center; font-weight:700; font-size:1rem; flex-shrink:0; }
+    .driver-name { font-family:var(--font-display); font-weight:700; font-size:.95rem; color:var(--gray-900); }
+    .driver-sub  { font-size:.75rem; color:var(--gray-400); margin-top:.15rem; }
+    .driver-car  { background:var(--gray-50); border-radius:var(--r-sm); padding:.625rem .875rem; display:flex; align-items:center; gap:.75rem; margin-bottom:.875rem; font-size:.82rem; }
+    .driver-car svg { color:var(--gray-400); flex-shrink:0; }
+    .driver-car-info { flex:1; }
+    .driver-car-name { font-weight:600; color:var(--gray-800); }
+    .driver-car-plate { color:var(--gray-400); font-size:.75rem; }
+    .driver-actions { display:flex; gap:.5rem; }
+
+    .badge { display:inline-flex; align-items:center; padding:.25rem .6rem; border-radius:var(--r-full); font-size:.7rem; font-weight:600; white-space:nowrap; }
+    .badge-green { background:var(--success-bg); color:#065f46; }
+    .badge-amber { background:var(--warning-bg); color:#92400e; }
+    .badge-gray  { background:var(--gray-100);   color:var(--gray-600); }
+
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.5rem .875rem; border:none; border-radius:var(--r-sm); font-family:var(--font-body); font-size:.78rem; font-weight:600; cursor:pointer; transition:opacity .15s; text-decoration:none; }
+    .btn-outline { background:transparent; color:var(--brand); border:1.5px solid var(--brand); }
+    .btn-ghost   { background:transparent; color:var(--gray-600); border:1.5px solid var(--border); }
+
+    .empty-state { text-align:center; padding:3rem 1rem; color:var(--gray-400); }
+    .empty-state p { font-size:.9rem; }
+
+    .skeleton { background:linear-gradient(90deg,var(--gray-100) 25%,var(--gray-200) 50%,var(--gray-100) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px; }
+    @keyframes shimmer { to { background-position:-200% 0; } }
+
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; height:var(--nav-h); background:#fff; border-top:1px solid var(--border); display:flex; z-index:50; box-shadow:0 -4px 16px rgba(0,0,0,.06); }
+    .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; border:none; background:none; color:var(--gray-400); font-size:.65rem; font-weight:500; padding:.5rem 0; text-decoration:none; transition:color .15s; }
+    .nav-item svg { width:22px; height:22px; }
+    .nav-item.active { color:var(--brand); }
+  
+    .t-card { background:#fff; border:1px solid var(--border); border-left:4px solid #b45309; border-radius:var(--r-md); padding:1rem; margin-bottom:.75rem; box-shadow:var(--shadow-sm); }
+    .t-head { display:flex; align-items:center; gap:.75rem; cursor:pointer; }
+    .t-avatar { width:44px; height:44px; border-radius:var(--r-full); background:#fef3c7; color:#92400e; display:grid; place-items:center; font-weight:700; flex-shrink:0; }
+    .t-name { font-family:var(--font-display); font-weight:700; font-size:.95rem; color:var(--gray-900); }
+    .t-sub { font-size:.74rem; color:var(--gray-400); margin-top:.15rem; }
+    .t-reason { background:#fffbeb; border:1px solid #fde68a; border-radius:var(--r-sm); padding:.65rem .8rem; margin-top:.8rem; font-size:.82rem; color:#78350f; line-height:1.45; white-space:pre-wrap; word-break:break-word; }
+    .t-reason b { display:block; font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; margin-bottom:.2rem; color:#92400e; }
+    .row { display:flex; justify-content:space-between; gap:1rem; padding:.4rem 0; border-top:1px solid var(--gray-100); font-size:.8rem; }
+    .row span:first-child { color:var(--gray-500); } .row span:last-child { font-weight:600; text-align:right; }
+    .hist { display:none; margin-top:1rem; }
+    .t-card.open .hist { display:block; }
+    .hist-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--gray-400); margin:.9rem 0 .4rem; }
+    .ledger-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    table { width:100%; border-collapse:collapse; font-size:.76rem; }
+    th { text-align:left; color:var(--gray-400); font-weight:600; padding:.4rem .4rem; border-bottom:1.5px solid var(--border); white-space:nowrap; }
+    td { padding:.45rem .4rem; border-bottom:1px solid var(--gray-100); white-space:nowrap; }
+    tfoot td { font-weight:700; border-top:1.5px solid var(--border); border-bottom:none; }
+    .badge-red { background:var(--danger-bg); color:#991b1b; }
+    .chev { color:var(--gray-400); transition:transform .15s; } .t-card.open .chev { transform:rotate(180deg); }
+    @media print { .top-bar,.bottom-nav,.search-bar,.no-print { display:none !important; } .hist { display:block !important; } .t-card { break-inside:avoid; } }
+  
+</style>
+</head>
+<body>
+<header class="top-bar">
+  <span class="top-bar-logo">xchodedos</span>
+  <span class="top-bar-title">Terminated Drivers</span>
+  <div id="notifBell"></div>
+  <div class="top-bar-avatar" id="avatarBtn"></div>
+</header>
+
+<main class="page-content">
+  <p style="font-size:.78rem;color:var(--gray-500);margin-bottom:.875rem;line-height:1.5">Permanent records of drivers whose contracts ended — termination date, reason, and full payment history.</p>
+  <div class="search-bar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="search" id="searchInput" placeholder="Search name, plate or reason…" oninput="render()"/>
+  </div>
+  <div id="list"><div class="skeleton" style="height:120px;border-radius:12px;margin-bottom:.75rem"></div><div class="skeleton" style="height:120px;border-radius:12px"></div></div>
+</main>
+
+<nav class="bottom-nav" id="bottomNav"></nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/sync.js"></script>
+<script>
+  const SUPABASE_URL      = 'https://lhcrfsemshilnzyqoypd.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxoY3Jmc2Vtc2hpbG56eXFveXBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4OTM2ODUsImV4cCI6MjEwNDQ2OTY4NX0.bPqqrijUXEfvrB9mTbkPiicAcEbeMsDgO-STfo4Btjw';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let records = [], paysByDriver = {}, openId = null;
+
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fmt = d => d ? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  const money = n => 'GHS ' + (Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2, maximumFractionDigits:2});
+  const DAY = 86400000;
+
+  function mondayOf(date) {
+    const d = new Date(date); d.setHours(0,0,0,0);
+    const day = d.getDay();
+    return new Date(d.getTime() + (day === 0 ? -6 : 1 - day) * DAY);
+  }
+  const iso = d => d.toISOString().split('T')[0];
+
+  // Weekly ledger from hire start up to the termination date (not today).
+  function ledgerFor(a, payments) {
+    if (!a.hire_start_date || !a.weekly_payment) return [];
+    const start = mondayOf(a.hire_start_date);
+    const end = new Date(a.terminated_at); end.setHours(0,0,0,0);
+    const weekly = parseFloat(a.weekly_payment);
+    const byIdx = new Map(), recs = new Map();
+    payments.filter(p => p.payment_method !== 'deposit' && p.week_starting).forEach(p => {
+      const pd = new Date(p.week_starting); pd.setHours(0,0,0,0);
+      const idx = Math.floor((pd - start) / (7*DAY));
+      if (idx < 0) return;
+      if (!recs.has(idx)) recs.set(idx, []);
+      recs.get(idx).push(p);
+      if (p.status === 'paid') byIdx.set(idx, (byIdx.get(idx)||0) + parseFloat(p.amount||0));
+    });
+    const maxIdx = Math.max(-1, ...recs.keys());
+    const rows = [];
+    let idx = 0;
+    for (let c = new Date(start); c <= end || idx <= maxIdx; c = new Date(c.getTime()+7*DAY), idx++) {
+      const paid = byIdx.get(idx) || 0;
+      rows.push({ wk: idx+1, s: iso(c), e: iso(new Date(c.getTime()+6*DAY)), due: weekly, paid,
+        status: paid <= 0 ? 'missed' : (paid < weekly ? 'partial' : 'paid') });
+    }
+    return rows;
+  }
+
+  function historyHtml(a) {
+    const pays = (paysByDriver[a.driver_id] || []).slice().sort((x,y) => new Date(x.paid_at||x.week_starting) - new Date(y.paid_at||y.week_starting));
+    const deposits = pays.filter(p => p.payment_method === 'deposit' && p.status === 'paid');
+    const depTotal = deposits.reduce((s,p) => s + parseFloat(p.amount||0), 0);
+    const ledger = ledgerFor(a, pays);
+    const due = ledger.reduce((s,w) => s + w.due, 0);
+    const paid = ledger.reduce((s,w) => s + w.paid, 0);
+    const badge = { paid:'badge-green', partial:'badge-amber', missed:'badge-red' };
+    const label = { paid:'Paid', partial:'Partial', missed:'Missed' };
+    const totalPaidAll = pays.filter(p => p.status === 'paid').reduce((s,p) => s + parseFloat(p.amount||0), 0);
+    return `
+      <div class="hist-title">Payment Summary</div>
+      <div class="row"><span>Deposit paid</span><span>${money(depTotal)}</span></div>
+      <div class="row"><span>Weekly payments made</span><span>${money(paid)}</span></div>
+      <div class="row"><span>Weekly payments due (to termination)</span><span>${money(due)}</span></div>
+      <div class="row"><span>Arrears at termination</span><span style="color:${due-paid>0?'#b91c1c':'inherit'}">${money(Math.max(due-paid,0))}</span></div>
+      <div class="row"><span>Total received (incl. deposit)</span><span>${money(totalPaidAll)}</span></div>
+      ${deposits.length ? `<div class="hist-title">Deposit Payments</div>
+        ${deposits.map(p => `<div class="row"><span>${fmt(p.paid_at || p.week_starting)}</span><span>${money(p.amount)}</span></div>`).join('')}` : ''}
+      <div class="hist-title">Weekly Payment History</div>
+      ${ledger.length ? `<div class="ledger-wrap"><table>
+        <thead><tr><th>Wk</th><th>Week Start</th><th>Week End</th><th>Due</th><th>Paid</th><th>Status</th></tr></thead>
+        <tbody>${ledger.slice().reverse().map(w => `<tr><td>${w.wk}</td><td>${fmt(w.s)}</td><td>${fmt(w.e)}</td><td>${w.due.toFixed(2)}</td><td>${w.paid.toFixed(2)}</td><td><span class="badge ${badge[w.status]}">${label[w.status]}</span></td></tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="3">Total</td><td>${due.toFixed(2)}</td><td>${paid.toFixed(2)}</td><td></td></tr></tfoot>
+      </table></div>` : '<p style="font-size:.8rem;color:var(--gray-400)">No weekly schedule recorded for this contract.</p>'}
+      <div class="hist-title">All Payment Records</div>
+      ${pays.length ? `<div class="ledger-wrap"><table>
+        <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>${pays.map(p => `<tr><td>${fmt(p.paid_at || p.week_starting)}</td><td>${p.payment_method === 'deposit' ? 'Deposit' : 'Weekly'}</td><td>${parseFloat(p.amount).toFixed(2)}</td><td>${esc(p.status)}</td><td style="white-space:normal">${esc(p.notes || '—')}</td></tr>`).join('')}</tbody>
+      </table></div>` : '<p style="font-size:.8rem;color:var(--gray-400)">No payments on record.</p>'}
+      <div class="no-print" style="display:flex;gap:.5rem;margin-top:1rem">
+        <a href="/pages/officer/driver-detail.html?id=${a.driver_id}" class="btn btn-ghost" style="flex:1">Driver profile</a>
+        <button class="btn btn-outline" style="flex:1" onclick="window.print()">🖨 Print record</button>
+      </div>`;
+  }
+
+  window.toggle = id => { openId = openId === id ? null : id; render(); if (openId) document.getElementById('c-'+id)?.scrollIntoView({block:'nearest'}); };
+
+  window.render = () => {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const list = document.getElementById('list');
+    const rows = records.filter(a => {
+      const hay = [a.driver?.full_name, a.driver?.phone, a.cars?.plate_number, a.termination_reason].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+    if (!rows.length) { list.innerHTML = `<div class="empty-state"><p>No terminated contracts${q ? ' match your search' : ' yet'}.</p></div>`; return; }
+    list.innerHTML = rows.map(a => {
+      const name = a.driver?.full_name || 'Unknown driver';
+      const ini = name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+      const c = a.cars;
+      const isOpen = openId === a.id;
+      return `<div class="t-card ${isOpen?'open':''}" id="c-${a.id}">
+        <div class="t-head" onclick="toggle('${a.id}')">
+          <div class="t-avatar">${esc(ini)}</div>
+          <div style="flex:1;min-width:0">
+            <div class="t-name">${esc(name)}</div>
+            <div class="t-sub">Terminated ${fmt(a.terminated_at)}${c ? ' · ' + esc(c.plate_number) : ''}</div>
+          </div>
+          <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="t-reason"><b>Reason for termination</b>${esc(a.termination_reason || 'Not recorded')}</div>
+        <div class="hist">
+          <div class="hist-title" style="margin-top:.9rem">Contract</div>
+          <div class="row"><span>Phone</span><span>${esc(a.driver?.phone || '—')}</span></div>
+          <div class="row"><span>Vehicle</span><span>${c ? esc(c.make+' '+c.model+' '+(c.year||'')) + ' · ' + esc(c.plate_number) : '—'}</span></div>
+          <div class="row"><span>Contract start</span><span>${fmt(a.hire_start_date)}</span></div>
+          <div class="row"><span>Planned end</span><span>${fmt(a.hire_end_date)}</span></div>
+          <div class="row"><span>Terminated on</span><span>${fmt(a.terminated_at)}</span></div>
+          <div class="row"><span>Weekly payment</span><span>${money(a.weekly_payment)}</span></div>
+          ${a.total_contract_value ? `<div class="row"><span>Total contract value</span><span>${money(a.total_contract_value)}</span></div>` : ''}
+          <div class="row"><span>Terminated by</span><span>${esc(a.by?.full_name || '—')}</span></div>
+          ${isOpen ? historyHtml(a) : ''}
+        </div>
+      </div>`;
+    }).join('');
+  };
+
+  async function init() {
+    const { data:{ session } } = await db.auth.getSession();
+    if (!session) { window.location.href='/index.html'; return; }
+    const { data: p } = await db.from('profiles').select('*').eq('id', session.user.id).single();
+    if (!p || !['relationship_officer','super_admin'].includes(p.role)) { window.location.href='/index.html'; return; }
+
+    const ini = p.full_name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+    const av = document.getElementById('avatarBtn');
+    av.textContent = ini;
+    av.addEventListener('click', async () => { if(confirm('Sign out?')) { await db.auth.signOut(); window.location.href='/index.html'; } });
+    initNotificationBell(p.id, 'notifBell');
+
+    const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>';
+    document.getElementById('bottomNav').innerHTML = p.role === 'super_admin'
+      ? `<a href="/pages/admin/dashboard.html" class="nav-item">${icon}Dashboard</a><a href="/pages/officer/terminated-drivers.html" class="nav-item active">${icon}Terminated</a>`
+      : `<a href="/pages/officer/dashboard.html" class="nav-item">${icon}Dashboard</a><a href="/pages/officer/drivers.html" class="nav-item">${icon}Drivers</a><a href="/pages/officer/terminated-drivers.html" class="nav-item active">${icon}Terminated</a>`;
+
+    const { data: rows, error } = await db.from('driver_assignments')
+      .select('*, cars(make, model, year, plate_number), driver:profiles!driver_assignments_driver_id_fkey(id, full_name, phone, email), by:profiles!driver_assignments_terminated_by_fkey(full_name)')
+      .eq('is_active', false)
+      .not('terminated_at', 'is', null)
+      .order('terminated_at', { ascending:false });
+    if (error) {
+      console.error(error);
+      document.getElementById('list').innerHTML = `<div class="empty-state"><p>Could not load records.<br><small>${esc(error.message)}<br>Have you run add_contract_termination.sql?</small></p></div>`;
+      return;
+    }
+    records = rows || [];
+
+    const ids = [...new Set(records.map(r => r.driver_id))];
+    if (ids.length) {
+      const { data: pays } = await db.from('payments').select('*').in('driver_id', ids);
+      (pays||[]).forEach(x => (paysByDriver[x.driver_id] = paysByDriver[x.driver_id] || []).push(x));
+    }
+    render();
+  }
+  init();
+</script>
+</body>
+</html>
