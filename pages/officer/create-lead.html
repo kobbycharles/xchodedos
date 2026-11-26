@@ -340,7 +340,7 @@
       if (!userId) throw new Error('User creation failed.');
 
       // 2. Update profile details
-      const { data: profileData, error: profileErr } = await db.from('profiles').update({
+      const { error: profileErr } = await db.from('profiles').update({
         full_name: document.getElementById('fullName').value.trim(),
         phone: document.getElementById('phone').value.trim(),
         id_number: document.getElementById('idNumber').value.trim(),
@@ -350,11 +350,12 @@
         emergency_phone: document.getElementById('emergencyPhone').value.trim() || null,
         role: 'lead',
         temp_login_password: loginPassword,
-      }).eq('id', userId).select('id');
+      }).eq('id', userId);
       if (profileErr) throw profileErr;
-      if (!profileData || !profileData.length) {
-        throw new Error('The new account was created but its profile row is missing. Run fix_profile_trigger.sql in Supabase, then try again.');
-      }
+      // NOTE: we can't verify the row with .select() here — officers can only
+      // read a lead's profile once the leads row exists (RLS), so that check
+      // would wrongly report "missing". The leads insert below fails with an
+      // FK error (23503) if the profile truly doesn't exist.
 
       // 3. Create lead record
       const { data: lead, error: leadErr } = await db.from('leads').insert({
@@ -366,7 +367,10 @@
         notes: document.getElementById('notes').value.trim() || null,
         created_by: officerProfile.id,
       }).select().single();
-      if (leadErr) throw leadErr;
+      if (leadErr) {
+        if (leadErr.code === '23503') throw new Error('The login account was created but its profile row is missing. Make sure fix_profile_trigger.sql was run in the SAME Supabase project this app uses (lhcrfsemshilnzyqoypd), delete the leftover user in Authentication → Users, then try again.');
+        throw leadErr;
+      }
 
       // 4. Create 2 guarantors
       const { error: guarantorErr } = await db.from('guarantors').insert([
