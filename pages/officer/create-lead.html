@@ -321,6 +321,14 @@
       }
       if (authErr) throw authErr;
 
+      // Supabase returns a fake "user" with no identities (and no error) when
+      // the email already exists and email confirmation is on. No profile gets
+      // created for it, which is what caused the leads_profile_id_fkey error.
+      if (authData?.user && Array.isArray(authData.user.identities) && authData.user.identities.length === 0) {
+        if (officerSession) await db.auth.setSession({ access_token: officerSession.access_token, refresh_token: officerSession.refresh_token });
+        throw new Error('This email is already registered to another account. Use a different email or leave it blank to auto-generate one.');
+      }
+
       if (officerSession) {
         await db.auth.setSession({
           access_token: officerSession.access_token,
@@ -332,7 +340,7 @@
       if (!userId) throw new Error('User creation failed.');
 
       // 2. Update profile details
-      const { error: profileErr } = await db.from('profiles').update({
+      const { data: profileData, error: profileErr } = await db.from('profiles').update({
         full_name: document.getElementById('fullName').value.trim(),
         phone: document.getElementById('phone').value.trim(),
         id_number: document.getElementById('idNumber').value.trim(),
@@ -342,8 +350,11 @@
         emergency_phone: document.getElementById('emergencyPhone').value.trim() || null,
         role: 'lead',
         temp_login_password: loginPassword,
-      }).eq('id', userId);
+      }).eq('id', userId).select('id');
       if (profileErr) throw profileErr;
+      if (!profileData || !profileData.length) {
+        throw new Error('The new account was created but its profile row is missing. Run fix_profile_trigger.sql in Supabase, then try again.');
+      }
 
       // 3. Create lead record
       const { data: lead, error: leadErr } = await db.from('leads').insert({
@@ -423,7 +434,8 @@
     for (let n = 0; n < 6; n++) {
       const email = n === 0 ? `${base}@xchodedos.internal` : `${base}${n+1}@xchodedos.internal`;
       const res = await db.auth.signUp({ email, password, options });
-      if (!res.error || !/already registered|already exists/i.test(res.error.message || '')) {
+      const fake = !res.error && Array.isArray(res.data?.user?.identities) && res.data.user.identities.length === 0;
+      if (!fake && (!res.error || !/already registered|already exists/i.test(res.error.message || ''))) {
         return { ...res, email };
       }
     }
